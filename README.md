@@ -9,6 +9,7 @@ A cross-platform C++ networking library that provides abstractions for TCP and U
 - Factory pattern to create appropriate socket implementations
 - Simple API for network communications
 - Comprehensive test suite using Google Test framework
+- Specialized timeout functionality for non-blocking operations
 
 ## Requirements
 
@@ -52,13 +53,23 @@ The library comes with example applications that demonstrate basic usage:
 
 ```bash
 cd build
-./examples/socket_examples
+# Run TCP examples
+./examples/example_tcp_server
+./examples/example_tcp_client
+
+# Run UDP examples
+./examples/example_udp_sender
+./examples/example_udp_receiver
+./examples/example_udp_broadcast
+./examples/example_udp_multicast
 ```
 
 These examples show how to:
 - Set up TCP servers and clients
 - Send and receive UDP datagrams
+- Work with UDP broadcast and multicast
 - Handle different networking scenarios
+- Implement non-blocking operations with timeouts
 
 ## Project Structure
 
@@ -86,9 +97,12 @@ tcp_udp_connection/
 ├── tests/                         # Test suite
 │   ├── CMakeLists.txt             # Test build configuration
 │   ├── tcp_socket_test.cpp        # TCP socket tests
-│   └── udp_socket_test.cpp        # UDP socket tests
+│   ├── tcp_timeout_test.cpp       # TCP timeout functionality tests
+│   ├── udp_socket_test.cpp        # UDP socket tests
+│   └── udp_timeout_test.cpp       # UDP timeout functionality tests
 └── examples/                      # Example applications
     ├── CMakeLists.txt             # Examples build configuration
+    ├── examples.cpp               # Common examples code
     ├── tcp_client.cpp             # TCP client example
     ├── tcp_server.cpp             # TCP server example
     ├── udp_broadcast.cpp          # UDP broadcast example
@@ -105,6 +119,23 @@ The library is designed to work seamlessly across different platforms:
 - **Unix/Linux/macOS**: Uses POSIX sockets API
 
 The platform-specific implementations are automatically selected at compile time.
+
+## Advanced Features
+
+### Non-blocking Operations with Timeout
+
+Both TCP and UDP implementations support non-blocking operations with configurable timeouts:
+
+```cpp
+// Example of using timeout functionality
+if (socket->WaitForDataWithTimeout(500)) { // Wait for 500ms
+    // Data is available, receive it
+    std::vector<char> buffer(1024);
+    int bytesReceived = socket->Receive(buffer, buffer.size());
+} else {
+    // Timeout occurred, no data available
+}
+```
 
 ## License
 
