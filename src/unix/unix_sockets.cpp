@@ -38,6 +38,28 @@ namespace {
     }
 }
 
+// Implementation of the helper function for WaitForDataWithTimeout
+namespace UnixSocketHelpers {
+    bool WaitForDataWithTimeout(int socketFd, int timeoutMs) {
+        if (socketFd == -1)
+            return false;
+            
+        fd_set readSet;
+        FD_ZERO(&readSet);
+        FD_SET(socketFd, &readSet);
+
+        struct timeval timeout;
+        timeout.tv_sec = timeoutMs / 1000;
+        timeout.tv_usec = (timeoutMs % 1000) * 1000;
+
+        // Use select to wait for data with timeout
+        int result = select(socketFd + 1, &readSet, NULL, NULL, &timeout);
+
+        // Return true if socket has data available
+        return (result > 0 && FD_ISSET(socketFd, &readSet));
+    }
+}
+
 // UnixTcpSocket Implementation
 UnixTcpSocket::UnixTcpSocket() 
     : m_socketFd(-1), m_isConnected(false) {
@@ -130,22 +152,10 @@ bool UnixTcpSocket::SetNoDelay(bool enable) {
 }
 
 bool UnixTcpSocket::WaitForDataWithTimeout(int timeoutMs) {
-    if (m_socketFd == -1 || !m_isConnected)
+    if (!m_isConnected)
         return false;
-
-    fd_set readSet;
-    FD_ZERO(&readSet);
-    FD_SET(m_socketFd, &readSet);
-
-    struct timeval timeout;
-    timeout.tv_sec = timeoutMs / 1000;
-    timeout.tv_usec = (timeoutMs % 1000) * 1000;
-
-    // Use select to wait for data with timeout
-    int result = select(m_socketFd + 1, &readSet, NULL, NULL, &timeout);
-
-    // Return true if socket has data available
-    return (result > 0 && FD_ISSET(m_socketFd, &readSet));
+        
+    return UnixSocketHelpers::WaitForDataWithTimeout(m_socketFd, timeoutMs);
 }
 
 // UnixTcpListener Implementation
@@ -210,6 +220,10 @@ std::unique_ptr<IConnectionOrientedSocket> UnixTcpListener::Accept() {
         return nullptr;
 
     return std::make_unique<UnixTcpSocket>(clientSocket);
+}
+
+bool UnixTcpListener::WaitForDataWithTimeout(int timeoutMs) {
+    return UnixSocketHelpers::WaitForDataWithTimeout(m_socketFd, timeoutMs);
 }
 
 // UnixUdpSocket Implementation
@@ -310,6 +324,10 @@ bool UnixUdpSocket::LeaveMulticastGroup(const NetworkAddress& groupAddress) {
     
     return (setsockopt(m_socketFd, IPPROTO_IP, IP_DROP_MEMBERSHIP,
                      &mreq, sizeof(mreq)) == 0);
+}
+
+bool UnixUdpSocket::WaitForDataWithTimeout(int timeoutMs) {
+    return UnixSocketHelpers::WaitForDataWithTimeout(m_socketFd, timeoutMs);
 }
 
 // UnixNetworkSocketFactory Implementation

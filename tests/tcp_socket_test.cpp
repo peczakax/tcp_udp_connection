@@ -15,6 +15,7 @@ public:
     MOCK_METHOD(int, Receive, (std::vector<char>& buffer, int maxSize), (override));
     MOCK_METHOD(NetworkAddress, GetRemoteAddress, (), (const, override));
     MOCK_METHOD(bool, SetNoDelay, (bool enable), (override));
+    MOCK_METHOD(bool, WaitForDataWithTimeout, (int timeoutMs), (override));
 };
 
 // Mock class for TCP listener
@@ -26,6 +27,7 @@ public:
     MOCK_METHOD(bool, IsValid, (), (const, override));
     MOCK_METHOD(bool, Listen, (int backlog), (override));
     MOCK_METHOD(std::unique_ptr<IConnectionOrientedSocket>, Accept, (), (override));
+    MOCK_METHOD(bool, WaitForDataWithTimeout, (int timeoutMs), (override));
 };
 
 // Mock class for TCP socket factory
@@ -115,4 +117,93 @@ TEST(TcpListenerTest, ListenAndAccept) {
     // Test accepting a connection
     auto clientSocket = mockListener.Accept();
     EXPECT_NE(clientSocket, nullptr);
+}
+
+// Test for TCP NoDelay option
+TEST(TcpSocketTest, SetNoDelay) {
+    // Create a mock TCP socket
+    MockTcpSocket mockSocket;
+    
+    // Set expectations for enabling NoDelay
+    EXPECT_CALL(mockSocket, SetNoDelay(true))
+        .WillOnce(testing::Return(true));
+    
+    // Set expectations for disabling NoDelay
+    EXPECT_CALL(mockSocket, SetNoDelay(false))
+        .WillOnce(testing::Return(true));
+    
+    // Test enabling NoDelay
+    EXPECT_TRUE(mockSocket.SetNoDelay(true));
+    
+    // Test disabling NoDelay
+    EXPECT_TRUE(mockSocket.SetNoDelay(false));
+}
+
+// Test for WaitForDataWithTimeout functionality
+TEST(TcpSocketTest, WaitForDataWithTimeout) {
+    // Create a mock TCP socket
+    MockTcpSocket mockSocket;
+    
+    // Set expectations - first no data available within timeout
+    EXPECT_CALL(mockSocket, WaitForDataWithTimeout(100))
+        .WillOnce(testing::Return(false));
+    
+    // Then data becomes available within timeout
+    EXPECT_CALL(mockSocket, WaitForDataWithTimeout(500))
+        .WillOnce(testing::Return(true));
+    
+    // Test timeout with no data
+    EXPECT_FALSE(mockSocket.WaitForDataWithTimeout(100));
+    
+    // Test timeout with data available
+    EXPECT_TRUE(mockSocket.WaitForDataWithTimeout(500));
+}
+
+// Test for TCP socket error handling
+TEST(TcpSocketTest, ErrorHandling) {
+    // Create a mock TCP socket
+    MockTcpSocket mockSocket;
+    
+    // Set up expectations for error conditions
+    EXPECT_CALL(mockSocket, IsValid())
+        .WillOnce(testing::Return(false));
+    
+    EXPECT_CALL(mockSocket, Connect(testing::_))
+        .WillOnce(testing::Return(false));
+    
+    EXPECT_CALL(mockSocket, Send(testing::_))
+        .WillOnce(testing::Return(-1));
+    
+    EXPECT_CALL(mockSocket, Receive(testing::_, testing::_))
+        .WillOnce(testing::Return(-1));
+    
+    // Test invalid socket
+    EXPECT_FALSE(mockSocket.IsValid());
+    
+    // Test failed connection
+    EXPECT_FALSE(mockSocket.Connect(NetworkAddress("192.168.1.1", 8080)));
+    
+    // Test send failure
+    std::vector<char> sendData = {'T', 'e', 's', 't'};
+    EXPECT_EQ(mockSocket.Send(sendData), -1);
+    
+    // Test receive failure
+    std::vector<char> receiveBuffer;
+    EXPECT_EQ(mockSocket.Receive(receiveBuffer, -1), -1);
+}
+
+// Test for AcceptTcp helper method
+TEST(TcpListenerTest, AcceptTcpHelper) {
+    // Create mock objects
+    MockTcpListener mockListener;
+    
+    // Set up expectations
+    EXPECT_CALL(mockListener, Accept())
+        .WillOnce([&]() {
+            return std::make_unique<MockTcpSocket>();
+        });
+    
+    // Test AcceptTcp helper method that returns ITcpSocket
+    auto tcpSocket = mockListener.Accept();
+    EXPECT_NE(tcpSocket, nullptr);
 }

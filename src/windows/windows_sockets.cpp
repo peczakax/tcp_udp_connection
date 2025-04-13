@@ -36,6 +36,29 @@ namespace {
     }
 }
 
+// Implementation of the helper function for WaitForDataWithTimeout
+namespace WindowsSocketHelpers {
+    bool WaitForDataWithTimeout(SOCKET socket, int timeoutMs) {
+        if (socket == INVALID_SOCKET)
+            return false;
+            
+        fd_set readSet;
+        FD_ZERO(&readSet);
+        FD_SET(socket, &readSet);
+
+        struct timeval timeout;
+        timeout.tv_sec = timeoutMs / 1000;
+        timeout.tv_usec = (timeoutMs % 1000) * 1000;
+
+        // Use select to wait for data with timeout
+        // First parameter is ignored on Windows (it's different from Unix)
+        int result = select(0, &readSet, NULL, NULL, &timeout);
+
+        // Return true if socket has data available
+        return (result > 0 && FD_ISSET(socket, &readSet));
+    }
+}
+
 // WindowsTcpSocket Implementation
 WindowsTcpSocket::WindowsTcpSocket() 
     : m_socket(INVALID_SOCKET), m_isConnected(false) {
@@ -128,22 +151,10 @@ bool WindowsTcpSocket::SetNoDelay(bool enable) {
 }
 
 bool WindowsTcpSocket::WaitForDataWithTimeout(int timeoutMs) {
-    if (m_socket == INVALID_SOCKET || !m_isConnected)
+    if (!m_isConnected)
         return false;
-
-    fd_set readSet;
-    FD_ZERO(&readSet);
-    FD_SET(m_socket, &readSet);
-
-    struct timeval timeout;
-    timeout.tv_sec = timeoutMs / 1000;
-    timeout.tv_usec = (timeoutMs % 1000) * 1000;
-
-    // Use select to wait for data with timeout
-    int result = select(0, &readSet, NULL, NULL, &timeout);  // First param is ignored on Windows
-
-    // Return true if socket has data available
-    return (result > 0 && FD_ISSET(m_socket, &readSet));
+        
+    return WindowsSocketHelpers::WaitForDataWithTimeout(m_socket, timeoutMs);
 }
 
 // WindowsTcpListener Implementation
@@ -202,6 +213,10 @@ std::unique_ptr<IConnectionOrientedSocket> WindowsTcpListener::Accept() {
         return nullptr;
 
     return std::make_unique<WindowsTcpSocket>(clientSocket);
+}
+
+bool WindowsTcpListener::WaitForDataWithTimeout(int timeoutMs) {
+    return WindowsSocketHelpers::WaitForDataWithTimeout(m_socket, timeoutMs);
 }
 
 // WindowsUdpSocket Implementation
@@ -302,6 +317,10 @@ bool WindowsUdpSocket::LeaveMulticastGroup(const NetworkAddress& groupAddress) {
     
     return (setsockopt(m_socket, IPPROTO_IP, IP_DROP_MEMBERSHIP,
                      reinterpret_cast<char*>(&mreq), sizeof(mreq)) == 0);
+}
+
+bool WindowsUdpSocket::WaitForDataWithTimeout(int timeoutMs) {
+    return WindowsSocketHelpers::WaitForDataWithTimeout(m_socket, timeoutMs);
 }
 
 // WindowsNetworkSocketFactory Implementation

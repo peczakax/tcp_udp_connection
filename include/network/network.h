@@ -25,6 +25,9 @@ public:
     virtual bool Bind(const NetworkAddress& localAddress) = 0;
     virtual NetworkAddress GetLocalAddress() const = 0;
     virtual bool IsValid() const = 0;
+    
+    // Method to check for available data with timeout
+    virtual bool WaitForDataWithTimeout(int timeoutMs) = 0;
 };
 
 // Interface for connection-oriented sockets (like TCP)

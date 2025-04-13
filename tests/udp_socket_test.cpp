@@ -15,6 +15,7 @@ public:
     MOCK_METHOD(bool, SetBroadcast, (bool enable), (override));
     MOCK_METHOD(bool, JoinMulticastGroup, (const NetworkAddress& groupAddress), (override));
     MOCK_METHOD(bool, LeaveMulticastGroup, (const NetworkAddress& groupAddress), (override));
+    MOCK_METHOD(bool, WaitForDataWithTimeout, (int timeoutMs), (override));
 };
 
 // Mock class for UDP socket factory
@@ -110,4 +111,111 @@ TEST(UdpSocketTest, MulticastGroupOperations) {
     
     // Test setting broadcast mode
     EXPECT_TRUE(mockSocket.SetBroadcast(true));
+}
+
+// Test for UDP broadcast functionality
+TEST(UdpSocketTest, BroadcastMode) {
+    // Create a mock UDP socket
+    MockUdpSocket mockSocket;
+    
+    // Set expectations for enabling broadcast
+    EXPECT_CALL(mockSocket, SetBroadcast(true))
+        .WillOnce(testing::Return(true));
+    
+    // Set expectations for disabling broadcast
+    EXPECT_CALL(mockSocket, SetBroadcast(false))
+        .WillOnce(testing::Return(true));
+    
+    // Test enabling broadcast
+    EXPECT_TRUE(mockSocket.SetBroadcast(true));
+    
+    // Test disabling broadcast
+    EXPECT_TRUE(mockSocket.SetBroadcast(false));
+}
+
+// Test for UDP socket error handling
+TEST(UdpSocketTest, ErrorHandling) {
+    // Create a mock UDP socket
+    MockUdpSocket mockSocket;
+    
+    // Set up expectations for error conditions
+    EXPECT_CALL(mockSocket, IsValid())
+        .WillOnce(testing::Return(false));
+    
+    EXPECT_CALL(mockSocket, SendTo(testing::_, testing::_))
+        .WillOnce(testing::Return(-1));
+    
+    EXPECT_CALL(mockSocket, ReceiveFrom(testing::_, testing::_, testing::_))
+        .WillOnce(testing::Return(-1));
+    
+    // Test invalid socket
+    EXPECT_FALSE(mockSocket.IsValid());
+    
+    // Test send failure
+    std::vector<char> sendData = {'T', 'e', 's', 't'};
+    NetworkAddress destination("192.168.1.1", 8080);
+    EXPECT_EQ(mockSocket.SendTo(sendData, destination), -1);
+    
+    // Test receive failure
+    std::vector<char> receiveBuffer;
+    NetworkAddress source;
+    EXPECT_EQ(mockSocket.ReceiveFrom(receiveBuffer, source, -1), -1);
+}
+
+// Test for multicast error handling
+TEST(UdpSocketTest, MulticastErrorHandling) {
+    // Create a mock UDP socket
+    MockUdpSocket mockSocket;
+    
+    // Test invalid multicast address (non-multicast IP range)
+    NetworkAddress invalidMulticastAddr("192.168.1.1", 5000);
+    
+    // Valid multicast address but socket is invalid
+    NetworkAddress validMulticastAddr("224.0.0.1", 5000);
+    
+    // Set expectations
+    EXPECT_CALL(mockSocket, JoinMulticastGroup(testing::_))
+        .WillOnce(testing::Return(false));
+    
+    EXPECT_CALL(mockSocket, LeaveMulticastGroup(testing::_))
+        .WillOnce(testing::Return(false));
+    
+    // Test joining a multicast group failure
+    EXPECT_FALSE(mockSocket.JoinMulticastGroup(validMulticastAddr));
+    
+    // Test leaving a multicast group failure
+    EXPECT_FALSE(mockSocket.LeaveMulticastGroup(validMulticastAddr));
+}
+
+// Test for socket address handling
+TEST(NetworkAddressTest, AddressHandling) {
+    // Test empty address
+    NetworkAddress emptyAddr;
+    EXPECT_EQ(emptyAddr.ipAddress, "");
+    EXPECT_EQ(emptyAddr.port, 0);
+    
+    // Test address initialization
+    NetworkAddress addr("127.0.0.1", 8080);
+    EXPECT_EQ(addr.ipAddress, "127.0.0.1");
+    EXPECT_EQ(addr.port, 8080);
+}
+
+// Test for WaitForDataWithTimeout functionality
+TEST(UdpSocketTest, WaitForDataWithTimeout) {
+    // Create a mock UDP socket
+    MockUdpSocket mockSocket;
+    
+    // Set expectations - first no data available within timeout
+    EXPECT_CALL(mockSocket, WaitForDataWithTimeout(100))
+        .WillOnce(testing::Return(false));
+    
+    // Then data becomes available within timeout
+    EXPECT_CALL(mockSocket, WaitForDataWithTimeout(500))
+        .WillOnce(testing::Return(true));
+    
+    // Test timeout with no data
+    EXPECT_FALSE(mockSocket.WaitForDataWithTimeout(100));
+    
+    // Test timeout with data available
+    EXPECT_TRUE(mockSocket.WaitForDataWithTimeout(500));
 }

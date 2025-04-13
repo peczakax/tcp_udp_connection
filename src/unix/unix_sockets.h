@@ -19,6 +19,12 @@ class UnixTcpSocket;
 class UnixTcpListener;
 class UnixUdpSocket;
 
+// Helper functions namespace
+namespace UnixSocketHelpers {
+    // Common helper function for WaitForDataWithTimeout implementation
+    bool WaitForDataWithTimeout(int socketFd, int timeoutMs);
+}
+
 // Unix implementation of TCP socket
 class UnixTcpSocket : public ITcpSocket {
 public:
@@ -58,8 +64,7 @@ public:
     bool Bind(const NetworkAddress& localAddress) override;
     NetworkAddress GetLocalAddress() const override;
     bool IsValid() const override;
-
-    // IConnectionListener implementation
+    bool WaitForDataWithTimeout(int timeoutMs) override;
     bool Listen(int backlog) override;
     std::unique_ptr<IConnectionOrientedSocket> Accept() override;
 
@@ -87,6 +92,7 @@ public:
     bool SetBroadcast(bool enable) override;
     bool JoinMulticastGroup(const NetworkAddress& groupAddress) override;
     bool LeaveMulticastGroup(const NetworkAddress& groupAddress) override;
+    bool WaitForDataWithTimeout(int timeoutMs) override;
 
 private:
     int m_socketFd;

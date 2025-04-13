@@ -15,6 +15,12 @@ class WindowsTcpSocket;
 class WindowsTcpListener;
 class WindowsUdpSocket;
 
+// Helper functions namespace
+namespace WindowsSocketHelpers {
+    // Common helper function for WaitForDataWithTimeout implementation
+    bool WaitForDataWithTimeout(SOCKET socket, int timeoutMs);
+}
+
 // Windows implementation of TCP socket
 class WindowsTcpSocket : public ITcpSocket {
 public:
@@ -54,8 +60,7 @@ public:
     bool Bind(const NetworkAddress& localAddress) override;
     NetworkAddress GetLocalAddress() const override;
     bool IsValid() const override;
-
-    // IConnectionListener implementation
+    bool WaitForDataWithTimeout(int timeoutMs) override;
     bool Listen(int backlog) override;
     std::unique_ptr<IConnectionOrientedSocket> Accept() override;
 
@@ -83,6 +88,7 @@ public:
     bool SetBroadcast(bool enable) override;
     bool JoinMulticastGroup(const NetworkAddress& groupAddress) override;
     bool LeaveMulticastGroup(const NetworkAddress& groupAddress) override;
+    bool WaitForDataWithTimeout(int timeoutMs) override;
 
 private:
     SOCKET m_socket;
