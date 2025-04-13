@@ -129,6 +129,25 @@ bool UnixTcpSocket::SetNoDelay(bool enable) {
                      &value, sizeof(value)) == 0);
 }
 
+bool UnixTcpSocket::WaitForDataWithTimeout(int timeoutMs) {
+    if (m_socketFd == -1 || !m_isConnected)
+        return false;
+
+    fd_set readSet;
+    FD_ZERO(&readSet);
+    FD_SET(m_socketFd, &readSet);
+
+    struct timeval timeout;
+    timeout.tv_sec = timeoutMs / 1000;
+    timeout.tv_usec = (timeoutMs % 1000) * 1000;
+
+    // Use select to wait for data with timeout
+    int result = select(m_socketFd + 1, &readSet, NULL, NULL, &timeout);
+
+    // Return true if socket has data available
+    return (result > 0 && FD_ISSET(m_socketFd, &readSet));
+}
+
 // UnixTcpListener Implementation
 UnixTcpListener::UnixTcpListener() 
     : m_socketFd(-1) {

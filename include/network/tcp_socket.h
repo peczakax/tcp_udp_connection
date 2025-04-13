@@ -11,6 +11,9 @@ class ITcpSocket : public IConnectionOrientedSocket {
 public:
     // Example of a TCP-specific option
     virtual bool SetNoDelay(bool enable) = 0;
+    
+    // Add a method to check for data with timeout
+    virtual bool WaitForDataWithTimeout(int timeoutMs) = 0;
 };
 
 // TCP server socket interface

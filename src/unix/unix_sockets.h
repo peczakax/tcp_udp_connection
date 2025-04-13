@@ -40,6 +40,7 @@ public:
 
     // ITcpSocket implementation
     bool SetNoDelay(bool enable) override;
+    bool WaitForDataWithTimeout(int timeoutMs) override;
 
 private:
     int m_socketFd;

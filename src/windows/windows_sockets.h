@@ -36,6 +36,7 @@ public:
 
     // ITcpSocket implementation
     bool SetNoDelay(bool enable) override;
+    bool WaitForDataWithTimeout(int timeoutMs) override;
 
 private:
     SOCKET m_socket;

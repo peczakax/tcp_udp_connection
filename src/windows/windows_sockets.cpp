@@ -127,6 +127,25 @@ bool WindowsTcpSocket::SetNoDelay(bool enable) {
                       reinterpret_cast<char*>(&value), sizeof(value)) == 0);
 }
 
+bool WindowsTcpSocket::WaitForDataWithTimeout(int timeoutMs) {
+    if (m_socket == INVALID_SOCKET || !m_isConnected)
+        return false;
+
+    fd_set readSet;
+    FD_ZERO(&readSet);
+    FD_SET(m_socket, &readSet);
+
+    struct timeval timeout;
+    timeout.tv_sec = timeoutMs / 1000;
+    timeout.tv_usec = (timeoutMs % 1000) * 1000;
+
+    // Use select to wait for data with timeout
+    int result = select(0, &readSet, NULL, NULL, &timeout);  // First param is ignored on Windows
+
+    // Return true if socket has data available
+    return (result > 0 && FD_ISSET(m_socket, &readSet));
+}
+
 // WindowsTcpListener Implementation
 WindowsTcpListener::WindowsTcpListener() 
     : m_socket(INVALID_SOCKET) {
