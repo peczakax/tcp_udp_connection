@@ -8,6 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Options
 option(BUILD_EXAMPLES "Build example applications" ON)
 option(BUILD_TESTS "Build tests" ON)
+option(BUILD_APPS "Build application files" ON)
 
 # Add the library
 add_subdirectory(src)
@@ -15,6 +16,11 @@ add_subdirectory(src)
 # Add examples if requested
 if(BUILD_EXAMPLES)
     add_subdirectory(examples)
+endif()
+
+# Add applications if requested 
+if(BUILD_APPS)
+    add_subdirectory(app)
 endif()
 
 # Set up testing with Google Test
