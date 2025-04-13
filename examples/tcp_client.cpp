@@ -6,25 +6,18 @@
 int main() {
     std::cout << "Running TCP client example..." << std::endl;
 
-    // Create platform-specific factory
     auto factory = INetworkSocketFactory::CreatePlatformFactory();
-    
-    // Create a TCP socket
     auto socket = factory->CreateTcpSocket();
-    
-    // Enable TCP_NODELAY option (disable Nagle's algorithm)
     socket->SetNoDelay(true);
     
     std::cout << "Connecting to 127.0.0.1:8080..." << std::endl;
-    // Connect to a server
+    
     if (socket->Connect(NetworkAddress("127.0.0.1", 8080))) {
         std::cout << "Connected to server!" << std::endl;
         
         // Send data
         std::string message = "Hello, server!";
-        std::vector<char> data(message.begin(), message.end());
-        int bytesSent = socket->Send(data);
-        
+        int bytesSent = socket->Send(std::vector<char>(message.begin(), message.end()));
         std::cout << "Sent " << bytesSent << " bytes: " << message << std::endl;
         
         // Receive response
@@ -32,8 +25,7 @@ int main() {
         int bytesRead = socket->Receive(response);
         
         if (bytesRead > 0) {
-            std::string responseStr(response.begin(), response.end());
-            std::cout << "Received " << bytesRead << " bytes: " << responseStr << std::endl;
+            std::cout << "Received: " << std::string(response.begin(), response.end()) << std::endl;
         } else {
             std::cout << "Failed to receive response" << std::endl;
         }

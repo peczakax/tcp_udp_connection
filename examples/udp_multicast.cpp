@@ -10,62 +10,51 @@ int main() {
 
     auto factory = INetworkSocketFactory::CreatePlatformFactory();
     
-    // Create a multicast sender
+    // Create sender and receiver
     auto sender = factory->CreateUdpSocket();
-    
-    // Create a multicast receiver
     auto receiver = factory->CreateUdpSocket();
     
-    // Multicast address (must be in the range 224.0.0.0 to 239.255.255.255)
+    // Multicast configuration
     NetworkAddress multicastGroup("239.255.1.1", 8083);
+    std::string message = "Hello, multicast group!";
     
-    // Set up the receiver
-    if (receiver->Bind(NetworkAddress("0.0.0.0", 8083))) {
-        // Join the multicast group
-        if (receiver->JoinMulticastGroup(multicastGroup)) {
-            std::cout << "Joined multicast group " << multicastGroup.ipAddress << std::endl;
-            
-            // Start a thread to receive multicast messages
-            std::thread receiveThread([&receiver]() {
-                std::cout << "Waiting for multicast messages..." << std::endl;
-                
-                std::vector<char> buffer;
-                NetworkAddress sender;
-                
-                int bytesRead = receiver->ReceiveFrom(buffer, sender);
-                
-                if (bytesRead > 0) {
-                    std::string message(buffer.begin(), buffer.end());
-                    std::cout << "Received multicast: " << message << std::endl;
-                }
-            });
-            
-            // Send a multicast message
-            std::this_thread::sleep_for(std::chrono::seconds(1)); // Give receiver time to start
-            
-            std::string message = "Hello, multicast group!";
-            std::vector<char> data(message.begin(), message.end());
-            
-            std::cout << "Sending multicast message..." << std::endl;
-            int bytesSent = sender->SendTo(data, multicastGroup);
-            
-            if (bytesSent > 0) {
-                std::cout << "Sent " << bytesSent << " bytes to multicast group" << std::endl;
-            } else {
-                std::cout << "Failed to send multicast message" << std::endl;
-            }
-            
-            // Wait for receive thread to complete
-            receiveThread.join();
-            
-            // Leave the multicast group
-            receiver->LeaveMulticastGroup(multicastGroup);
-        } else {
-            std::cout << "Failed to join multicast group" << std::endl;
-        }
-    } else {
-        std::cout << "Failed to bind multicast receiver" << std::endl;
+    // Set up receiver
+    if (!receiver->Bind(NetworkAddress("0.0.0.0", 8083))) {
+        std::cout << "Failed to bind receiver" << std::endl;
+        return 1;
     }
+    
+    if (!receiver->JoinMulticastGroup(multicastGroup)) {
+        std::cout << "Failed to join multicast group" << std::endl;
+        return 1;
+    }
+    
+    std::cout << "Joined multicast group " << multicastGroup.ipAddress << std::endl;
+    
+    // Start receive thread
+    std::thread receiveThread([&receiver]() {
+        std::vector<char> buffer;
+        NetworkAddress sender;
+        
+        if (receiver->ReceiveFrom(buffer, sender) > 0) {
+            std::string message(buffer.begin(), buffer.end());
+            std::cout << "Received: " << message << std::endl;
+        }
+    });
+    
+    // Send multicast message
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    std::vector<char> data(message.begin(), message.end());
+    
+    std::cout << "Sending message..." << std::endl;
+    if (sender->SendTo(data, multicastGroup) > 0) {
+        std::cout << "Message sent successfully" << std::endl;
+    } else {
+        std::cout << "Failed to send message" << std::endl;
+    }
+    
+    receiveThread.join();
+    receiver->LeaveMulticastGroup(multicastGroup);
     
     return 0;
 }

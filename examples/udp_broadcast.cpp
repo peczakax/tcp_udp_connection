@@ -6,29 +6,24 @@
 int main() {
     std::cout << "Running UDP broadcast example..." << std::endl;
 
+    // Create factory and broadcast sender
     auto factory = INetworkSocketFactory::CreatePlatformFactory();
-    
-    // Create broadcast sender
     auto sender = factory->CreateUdpSocket();
     
-    // Enable broadcasting
-    if (sender->SetBroadcast(true)) {
-        std::cout << "Broadcast enabled" << std::endl;
-        
-        // Send broadcast message
-        std::string message = "Hello, network!";
-        std::vector<char> data(message.begin(), message.end());
-        
-        int bytesSent = sender->SendTo(data, NetworkAddress("255.255.255.255", 8084));
-        
-        if (bytesSent > 0) {
-            std::cout << "Sent " << bytesSent << " bytes as broadcast" << std::endl;
-        } else {
-            std::cout << "Failed to send broadcast message" << std::endl;
-        }
-    } else {
+    // Try to broadcast a message
+    if (!sender->SetBroadcast(true)) {
         std::cout << "Failed to enable broadcasting" << std::endl;
+        return 1;
     }
+    
+    // Send message
+    std::string message = "Hello, network!";
+    int bytesSent = sender->SendTo(std::vector<char>(message.begin(), message.end()), 
+                                  NetworkAddress("255.255.255.255", 8084));
+    
+    std::cout << (bytesSent > 0 ? 
+                  "Sent " + std::to_string(bytesSent) + " bytes as broadcast" : 
+                  "Failed to send broadcast message") << std::endl;
     
     return 0;
 }
