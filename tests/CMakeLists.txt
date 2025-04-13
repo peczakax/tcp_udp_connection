@@ -13,6 +13,8 @@ add_executable(
   network_tests
   tcp_socket_test.cpp
   udp_socket_test.cpp
+  tcp_timeout_test.cpp
+  udp_timeout_test.cpp
 )
 
 # Link against GoogleTest/GoogleMock and our library

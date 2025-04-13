@@ -139,26 +139,6 @@ TEST(TcpSocketTest, SetNoDelay) {
     EXPECT_TRUE(mockSocket.SetNoDelay(false));
 }
 
-// Test for WaitForDataWithTimeout functionality
-TEST(TcpSocketTest, WaitForDataWithTimeout) {
-    // Create a mock TCP socket
-    MockTcpSocket mockSocket;
-    
-    // Set expectations - first no data available within timeout
-    EXPECT_CALL(mockSocket, WaitForDataWithTimeout(100))
-        .WillOnce(testing::Return(false));
-    
-    // Then data becomes available within timeout
-    EXPECT_CALL(mockSocket, WaitForDataWithTimeout(500))
-        .WillOnce(testing::Return(true));
-    
-    // Test timeout with no data
-    EXPECT_FALSE(mockSocket.WaitForDataWithTimeout(100));
-    
-    // Test timeout with data available
-    EXPECT_TRUE(mockSocket.WaitForDataWithTimeout(500));
-}
-
 // Test for TCP socket error handling
 TEST(TcpSocketTest, ErrorHandling) {
     // Create a mock TCP socket

@@ -199,23 +199,3 @@ TEST(NetworkAddressTest, AddressHandling) {
     EXPECT_EQ(addr.ipAddress, "127.0.0.1");
     EXPECT_EQ(addr.port, 8080);
 }
-
-// Test for WaitForDataWithTimeout functionality
-TEST(UdpSocketTest, WaitForDataWithTimeout) {
-    // Create a mock UDP socket
-    MockUdpSocket mockSocket;
-    
-    // Set expectations - first no data available within timeout
-    EXPECT_CALL(mockSocket, WaitForDataWithTimeout(100))
-        .WillOnce(testing::Return(false));
-    
-    // Then data becomes available within timeout
-    EXPECT_CALL(mockSocket, WaitForDataWithTimeout(500))
-        .WillOnce(testing::Return(true));
-    
-    // Test timeout with no data
-    EXPECT_FALSE(mockSocket.WaitForDataWithTimeout(100));
-    
-    // Test timeout with data available
-    EXPECT_TRUE(mockSocket.WaitForDataWithTimeout(500));
-}
