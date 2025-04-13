@@ -9,7 +9,14 @@
 #include <chrono>
 #include <ctime>
 #include <memory>
+
+// Platform-specific headers
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <signal.h>
+#endif
+
 #include "network/network.h"
 #include "network/tcp_socket.h"
 #include "network/platform_factory.h"
@@ -17,6 +24,9 @@
 // Default port for the chat server
 constexpr int DEFAULT_PORT = 8084;
 constexpr int DEFAULT_BUFFER_SIZE = 1024;
+
+// Signal handler for graceful termination
+std::atomic<bool> running(true);
 
 // Structure to represent a connected client
 struct Client {
@@ -474,6 +484,19 @@ public:
 // Global pointer to access server from signal handler
 static TCPLiveChatServer* gServerPtr = nullptr;
 
+// Platform-specific signal handling
+#ifdef _WIN32
+BOOL WINAPI WindowsSignalHandler(DWORD signal) {
+    if (signal == CTRL_C_EVENT) {
+        std::cout << "\nReceived Ctrl+C. Forcefully shutting down chat server..." << std::endl;
+        if (gServerPtr != nullptr) {
+            gServerPtr->forceStop();
+        }
+        return TRUE;
+    }
+    return FALSE;
+}
+#else
 // Signal handler for immediate termination
 void signalHandler(int signal) {
     if (signal == SIGINT) {
@@ -483,6 +506,7 @@ void signalHandler(int signal) {
         }
     }
 }
+#endif
 
 int main(int argc, char* argv[]) {
     int port = DEFAULT_PORT;
@@ -495,12 +519,16 @@ int main(int argc, char* argv[]) {
     TCPLiveChatServer chatServer(port);
     gServerPtr = &chatServer;
 
-    // Register signal handler using modern sigaction approach
+    // Register signal handler
+#ifdef _WIN32
+    SetConsoleCtrlHandler(WindowsSignalHandler, TRUE);
+#else
     struct sigaction sa;
     sa.sa_handler = signalHandler;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
     sigaction(SIGINT, &sa, nullptr);
+#endif
     
     try {
         // Handle Ctrl+C for clean shutdown

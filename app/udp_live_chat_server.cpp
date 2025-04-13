@@ -8,8 +8,14 @@
 #include <functional>
 #include <chrono>
 #include <ctime>
+
+// Platform-specific headers
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <signal.h>
 #include <arpa/inet.h> // For sockaddr_in structure and related functions
+#endif
 
 // Include public network interfaces
 #include "network/network.h"
@@ -40,9 +46,6 @@ struct NetworkAddressEqual {
         return (a.ipAddress == b.ipAddress && a.port == b.port);
     }
 };
-
-// Signal handler forward declaration
-void signalHandler(int signal);
 
 // Signal handler for graceful termination
 std::atomic<bool> running(true);
@@ -478,6 +481,7 @@ public:
         }
         
         std::cout << "UDP Chat server forcefully terminated" << std::endl;
+        exit(0);
     }
     
     int getPort() const {
@@ -491,6 +495,23 @@ public:
 // Global pointer to access server from signal handler
 static UdpLiveChatServer* gServerPtr = nullptr;
 
+// Platform-specific signal handling
+#ifdef _WIN32
+BOOL WINAPI WindowsSignalHandler(DWORD signal) {
+    if (signal == CTRL_C_EVENT) {
+        // Print shutdown message when Ctrl+C is pressed
+        std::cout << "\nReceived Ctrl+C. Forcefully shutting down chat server..." << std::endl;
+        // Set global running flag to false to terminate all running threads
+        running = false;
+        // Call forceStop on the server instance to immediately terminate
+        if (gServerPtr) {
+            gServerPtr->forceStop();
+        }
+        return TRUE;
+    }
+    return FALSE;
+}
+#else
 void signalHandler(int signal) {
     if (signal == SIGINT) {
         // Print shutdown message when Ctrl+C is pressed
@@ -503,14 +524,20 @@ void signalHandler(int signal) {
         }
     }
 }
+#endif
 
 int main(int argc, char* argv[]) {
     
+#ifdef _WIN32
+    // Set up signal handling for Windows
+    SetConsoleCtrlHandler(WindowsSignalHandler, TRUE);
+#else
     struct sigaction sa; // Set up signal handling for catching Ctrl+C
     sa.sa_handler = signalHandler;  // Assign our custom signal handler function
     sigemptyset(&sa.sa_mask);  // Initialize signal mask to empty set
     sa.sa_flags = 0;  // No special flags for signal handling
     sigaction(SIGINT, &sa, nullptr);  // Register handler for SIGINT (Ctrl+C)
+#endif
     
     int port = DEFAULT_PORT;
     

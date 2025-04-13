@@ -3,10 +3,16 @@
 #include <thread>
 #include <atomic>
 #include <functional>
-#include <signal.h>
 #include <condition_variable>
 #include <mutex>
 #include <vector>
+
+// Platform-specific headers
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <signal.h>
+#endif
 
 // Replace TcpClient with public network interfaces
 #include "network/network.h"
@@ -209,6 +215,25 @@ public:
 // Global pointer to client for signal handler access
 static TCPLiveChatClient* gClientPtr = nullptr;
 
+// Platform-specific signal handling
+#ifdef _WIN32
+BOOL WINAPI WindowsSignalHandler(DWORD signal) {
+    if (signal == CTRL_C_EVENT) {
+        std::cout << "\nReceived Ctrl+C. Forcefully disconnecting from chat server..." << std::endl;
+        running = false;
+        
+        // Force immediate socket shutdown if client exists
+        if (gClientPtr != nullptr) {
+            gClientPtr->forceDisconnect();
+        }
+        
+        // Notify all waiting threads about termination
+        terminationCv.notify_all();
+        return TRUE;
+    }
+    return FALSE;
+}
+#else
 void signalHandler(int signal) {
     if (signal == SIGINT) {
         std::cout << "\nReceived Ctrl+C. Forcefully disconnecting from chat server..." << std::endl;
@@ -223,14 +248,21 @@ void signalHandler(int signal) {
         terminationCv.notify_all();
     }
 }
+#endif
 
 int main(int argc, char* argv[]) {
     // Set up signal handling for graceful termination
+#ifdef _WIN32
+    if (!SetConsoleCtrlHandler(WindowsSignalHandler, TRUE)) {
+        std::cerr << "Could not set control handler" << std::endl;
+    }
+#else
     struct sigaction sa;
     sa.sa_handler = signalHandler;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
     sigaction(SIGINT, &sa, nullptr);
+#endif
     
     std::string serverIp = DEFAULT_SERVER;
     int port = DEFAULT_PORT;

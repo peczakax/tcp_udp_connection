@@ -3,11 +3,17 @@
 #include <thread>
 #include <atomic>
 #include <functional>
-#include <signal.h>
 #include <chrono>
 #include <condition_variable>
 #include <mutex>
 #include <vector>
+
+// Platform-specific headers
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <signal.h>
+#endif
 
 // Include public network interfaces
 #include "network/network.h"
@@ -252,6 +258,25 @@ public:
 // Global pointer to client for signal handler access
 static UdpLiveChatClient* gClientPtr = nullptr;
 
+// Platform-specific signal handling
+#ifdef _WIN32
+BOOL WINAPI WindowsSignalHandler(DWORD signal) {
+    if (signal == CTRL_C_EVENT) {
+        std::cout << "\nReceived Ctrl+C. Shutting down chat client..." << std::endl;
+        running = false;
+        
+        // Notify all waiting threads about termination
+        terminationCv.notify_all();
+        
+        // Force disconnect and exit immediately when Ctrl+C is pressed
+        if (gClientPtr) {
+            gClientPtr->forceDisconnect();
+        }
+        return TRUE;
+    }
+    return FALSE;
+}
+#else
 void signalHandler(int signal) {
     if (signal == SIGINT) {
         std::cout << "\nReceived Ctrl+C. Shutting down chat client..." << std::endl;
@@ -266,14 +291,19 @@ void signalHandler(int signal) {
         }
     }
 }
+#endif
 
 int main(int argc, char* argv[]) {
     // Set up signal handling for graceful termination
+#ifdef _WIN32
+    SetConsoleCtrlHandler(WindowsSignalHandler, TRUE);
+#else
     struct sigaction sa;
     sa.sa_handler = signalHandler;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
     sigaction(SIGINT, &sa, nullptr);
+#endif
     
     std::string serverIp = DEFAULT_SERVER;
     int port = DEFAULT_PORT;
