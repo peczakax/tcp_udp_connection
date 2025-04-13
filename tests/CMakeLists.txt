@@ -1,5 +1,12 @@
-# Find GTest package (which includes GMock on Ubuntu)
-find_package(GTest REQUIRED)
+# Check if GTest was fetched or found via find_package
+if(TARGET GTest::GTest)
+  # GTest was found via find_package
+  message(STATUS "Using system-installed GTest in tests")
+else()
+  # GTest was fetched with FetchContent
+  message(STATUS "Using fetched GTest in tests")
+  # We don't need find_package here as main CMakeLists already fetched GTest
+endif()
 
 # Add test executable
 add_executable(
@@ -12,8 +19,8 @@ add_executable(
 target_link_libraries(
   network_tests
   PRIVATE
-  GTest::GTest
-  GTest::Main
+  gtest
+  gtest_main
   gmock
   gmock_main
   network
