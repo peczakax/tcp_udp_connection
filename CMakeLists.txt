@@ -19,16 +19,24 @@ endif()
 
 # Set up testing with Google Test
 if(BUILD_TESTS)
-    # Fetch GoogleTest
-    include(FetchContent)
-    FetchContent_Declare(
-        googletest
-        GIT_REPOSITORY https://github.com/google/googletest.git
-        GIT_TAG v1.14.0  # Use the latest stable release
-    )
-    # For Windows: Prevent overriding the parent project's compiler/linker settings
-    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-    FetchContent_MakeAvailable(googletest)
+    # First try to find an existing GTest installation
+    find_package(GTest QUIET)
+    
+    if(NOT GTest_FOUND)
+        message(STATUS "GTest not found, fetching from source")
+        # Fetch GoogleTest
+        include(FetchContent)
+        FetchContent_Declare(
+            googletest
+            GIT_REPOSITORY https://github.com/google/googletest.git
+            GIT_TAG v1.14.0  # Use the latest stable release
+        )
+        # For Windows: Prevent overriding the parent project's compiler/linker settings
+        set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+        FetchContent_MakeAvailable(googletest)
+    else()
+        message(STATUS "Using system-installed GTest")
+    endif()
     
     enable_testing()
     add_subdirectory(tests)
