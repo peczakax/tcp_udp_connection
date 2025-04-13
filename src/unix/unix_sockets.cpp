@@ -124,11 +124,11 @@ int UnixTcpSocket::Receive(std::vector<char>& buffer, int maxSize) {
         return -1;
 
     const int bufferSize = (maxSize > 0) ? maxSize : 4096;
-    std::vector<char> tempBuffer(bufferSize);
+    std::vector<char> tempBuffer(bufferSize, 0);
     
     int bytesRead = recv(m_socketFd, tempBuffer.data(), bufferSize, 0);
     if (bytesRead > 0) {
-        buffer.insert(buffer.end(), tempBuffer.begin(), tempBuffer.begin() + bytesRead);
+        buffer.assign(tempBuffer.begin(), tempBuffer.begin() + bytesRead);
     }
     
     return bytesRead;
@@ -277,7 +277,7 @@ int UnixUdpSocket::ReceiveFrom(std::vector<char>& buffer, NetworkAddress& remote
         return -1;
 
     const int bufferSize = (maxSize > 0) ? maxSize : 4096;
-    std::vector<char> tempBuffer(bufferSize);
+    std::vector<char> tempBuffer(bufferSize, 0);
     
     sockaddr_in fromAddr = {};
     socklen_t fromLen = sizeof(fromAddr);
@@ -286,7 +286,7 @@ int UnixUdpSocket::ReceiveFrom(std::vector<char>& buffer, NetworkAddress& remote
                            reinterpret_cast<sockaddr*>(&fromAddr), &fromLen);
     
     if (bytesRead > 0) {
-        buffer.insert(buffer.end(), tempBuffer.begin(), tempBuffer.begin() + bytesRead);
+        buffer.assign(tempBuffer.begin(), tempBuffer.begin() + bytesRead);
         remoteAddress = CreateNetworkAddress(fromAddr);
     }
     

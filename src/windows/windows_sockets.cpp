@@ -123,11 +123,12 @@ int WindowsTcpSocket::Receive(std::vector<char>& buffer, int maxSize) {
         return -1;
 
     const int bufferSize = (maxSize > 0) ? maxSize : 4096;
-    std::vector<char> tempBuffer(bufferSize);
+    std::vector<char> tempBuffer(bufferSize, 0);  // Initialize with zeros explicitly
     
     int bytesRead = recv(m_socket, tempBuffer.data(), bufferSize, 0);
     if (bytesRead > 0) {
-        buffer.insert(buffer.end(), tempBuffer.begin(), tempBuffer.begin() + bytesRead);
+        // REPLACE the buffer content instead of appending
+        buffer.assign(tempBuffer.begin(), tempBuffer.begin() + bytesRead);
     }
     
     return bytesRead;
@@ -270,7 +271,7 @@ int WindowsUdpSocket::ReceiveFrom(std::vector<char>& buffer, NetworkAddress& rem
         return -1;
 
     const int bufferSize = (maxSize > 0) ? maxSize : 4096;
-    std::vector<char> tempBuffer(bufferSize);
+    std::vector<char> tempBuffer(bufferSize, 0);  // Initialize with zeros explicitly
     
     sockaddr_in fromAddr = {};
     int fromLen = sizeof(fromAddr);
@@ -279,7 +280,8 @@ int WindowsUdpSocket::ReceiveFrom(std::vector<char>& buffer, NetworkAddress& rem
                            reinterpret_cast<sockaddr*>(&fromAddr), &fromLen);
     
     if (bytesRead > 0) {
-        buffer.insert(buffer.end(), tempBuffer.begin(), tempBuffer.begin() + bytesRead);
+        // REPLACE the buffer content instead of appending
+        buffer.assign(tempBuffer.begin(), tempBuffer.begin() + bytesRead);
         remoteAddress = CreateNetworkAddress(fromAddr);
     }
     
