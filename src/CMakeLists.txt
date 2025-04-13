@@ -10,13 +10,13 @@ else()
 endif()
 
 # Create the library with all sources
-add_library(network_lib
+add_library(network
     platform_factory.cpp
     ${PLATFORM_SOURCES}
 )
 
 # Include directories
-target_include_directories(network_lib 
+target_include_directories(network 
     PUBLIC 
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
@@ -26,12 +26,12 @@ target_include_directories(network_lib
 
 # Platform-specific dependencies
 if(WIN32)
-    target_link_libraries(network_lib PRIVATE ws2_32)
+    target_link_libraries(network PRIVATE ws2_32)
 endif()
 
 # Install targets
-install(TARGETS network_lib
-        EXPORT network_lib-config
+install(TARGETS network
+        EXPORT network-config
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib
         RUNTIME DESTINATION bin)

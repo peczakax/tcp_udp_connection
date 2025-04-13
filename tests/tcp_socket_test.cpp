@@ -1,6 +1,7 @@
-#include <gtest/gtest.h>
 #include <gmock/gmock.h>
-#include "network_lib/tcp_socket.h"
+#include <gtest/gtest.h>
+#include <memory>
+#include "network/tcp_socket.h"
 
 // Mock class for TCP socket
 class MockTcpSocket : public ITcpSocket {
@@ -103,7 +104,9 @@ TEST(TcpListenerTest, ListenAndAccept) {
         .WillOnce(testing::Return(true));
     
     EXPECT_CALL(mockListener, Accept())
-        .WillOnce(testing::Return(std::make_unique<MockTcpSocket>()));
+        .WillOnce([&]() {
+            return std::make_unique<MockTcpSocket>();
+        });
     
     // Test the listener
     EXPECT_TRUE(mockListener.Bind(NetworkAddress("0.0.0.0", 8080)));

@@ -67,7 +67,7 @@ tcp_udp_connection/
 ├── CMakeLists.txt                 # Main CMake file
 ├── README.md                      # Project documentation
 ├── include/                       # Public API headers
-│   └── network_lib/               # Library namespace
+│   └── network/                   # Library namespace
 │       ├── network.h              # Core networking abstractions
 │       ├── tcp_socket.h           # TCP-specific interfaces
 │       ├── udp_socket.h           # UDP-specific interfaces

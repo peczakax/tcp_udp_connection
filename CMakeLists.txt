@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(network_lib VERSION 0.1.0 LANGUAGES CXX)
+project(network VERSION 0.1.0 LANGUAGES CXX)
 
 # Specify C++ standard
 set(CMAKE_CXX_STANDARD 20)
@@ -34,6 +34,10 @@ if(BUILD_TESTS)
         # For Windows: Prevent overriding the parent project's compiler/linker settings
         set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
         FetchContent_MakeAvailable(googletest)
+        
+        # Make GMock available when fetching GTest
+        add_library(GTest::GMock ALIAS gmock)
+        add_library(GTest::GMockMain ALIAS gmock_main)
     else()
         message(STATUS "Using system-installed GTest")
     endif()
@@ -43,6 +47,6 @@ if(BUILD_TESTS)
 endif()
 
 # Installation settings
-install(DIRECTORY include/network_lib
+install(DIRECTORY include/network
         DESTINATION include
         FILES_MATCHING PATTERN "*.h")

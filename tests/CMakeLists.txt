@@ -1,3 +1,6 @@
+# Find GTest package (which includes GMock on Ubuntu)
+find_package(GTest REQUIRED)
+
 # Add test executable
 add_executable(
   network_tests
@@ -5,15 +8,15 @@ add_executable(
   udp_socket_test.cpp
 )
 
-# Link against GoogleTest and our library
+# Link against GoogleTest/GoogleMock and our library
 target_link_libraries(
   network_tests
   PRIVATE
-  gtest
-  gtest_main
+  GTest::GTest
+  GTest::Main
   gmock
   gmock_main
-  network_lib
+  network
 )
 
 # Include directories

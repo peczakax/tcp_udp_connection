@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
-#include "network_lib/udp_socket.h"
+#include "network/udp_socket.h"
+#include <memory>
 
 // Mock class for UDP socket
 class MockUdpSocket : public IUdpSocket {

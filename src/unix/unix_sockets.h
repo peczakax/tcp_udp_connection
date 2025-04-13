@@ -10,9 +10,9 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include "network_lib/tcp_socket.h"
-#include "network_lib/udp_socket.h"
-#include "network_lib/platform_factory.h"
+#include "network/tcp_socket.h"
+#include "network/udp_socket.h"
+#include "network/platform_factory.h"
 
 // Forward declarations
 class UnixTcpSocket;

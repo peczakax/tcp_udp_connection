@@ -1,4 +1,4 @@
-#include "network_lib/platform_factory.h"
+#include "network/platform_factory.h"
 
 #ifdef _WIN32
 #include "windows/windows_sockets.h"
