@@ -391,55 +391,48 @@ classDiagram
     class ISocketBase {
         <<interface>>
         +Close()
-        +Bind()
+        +Bind(localAddress)
         +GetLocalAddress()
         +IsValid()
-        +WaitForDataWithTimeout()
+        +WaitForDataWithTimeout(timeoutMs)
     }
-    note for ISocketBase "Base interface for all socket types."
 
     class IConnectionOrientedSocket {
         <<interface>>
-        +Connect()
-        +Send()
-        +Receive()
+        +Connect(remoteAddress)
+        +Send(data)
+        +Receive(buffer, maxSize)
         +GetRemoteAddress()
     }
-    note for IConnectionOrientedSocket "Interface for connection-based sockets (e.g., TCP client)."
 
     class IConnectionListener {
         <<interface>>
-        +Listen()
+        +Listen(backlog)
         +Accept()
     }
-    note for IConnectionListener "Interface for listening sockets (e.g., TCP server)."
 
     class IConnectionlessSocket {
         <<interface>>
-        +SendTo()
-        +ReceiveFrom()
+        +SendTo(data, remoteAddress)
+        +ReceiveFrom(buffer, remoteAddress, maxSize)
     }
-    note for IConnectionlessSocket "Interface for connectionless sockets (e.g., UDP)."
 
     class ITcpSocket {
         <<interface>>
-        +SetNoDelay()
+        +SetNoDelay(enable)
     }
-    note for ITcpSocket "Concrete interface for TCP client sockets."
 
     class ITcpListener {
         <<interface>>
         +AcceptTcp()
     }
-    note for ITcpListener "Concrete interface for TCP listening sockets."
 
     class IUdpSocket {
         <<interface>>
-        +SetBroadcast()
-        +JoinMulticastGroup()
-        +LeaveMulticastGroup()
+        +SetBroadcast(enable)
+        +JoinMulticastGroup(groupAddress)
+        +LeaveMulticastGroup(groupAddress)
     }
-    note for IUdpSocket "Concrete interface for UDP sockets."
 
     class INetworkSocketFactory {
         <<interface>>
@@ -448,7 +441,6 @@ classDiagram
         +CreateUdpSocket()
         +CreatePlatformFactory() static
     }
-    note for INetworkSocketFactory "Abstract factory for creating platform-specific socket instances."
 
     ISocketBase <|-- IConnectionOrientedSocket
     ISocketBase <|-- IConnectionListener
