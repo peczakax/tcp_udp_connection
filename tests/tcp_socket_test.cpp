@@ -1,7 +1,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <memory>
+#include <cstddef> // For std::byte
 #include "network/tcp_socket.h"
+#include "network/byte_utils.h"
 
 // Mock class for TCP socket
 class MockTcpSocket : public ITcpSocket {
@@ -11,8 +13,8 @@ public:
     MOCK_METHOD(NetworkAddress, GetLocalAddress, (), (const, override));
     MOCK_METHOD(bool, IsValid, (), (const, override));
     MOCK_METHOD(bool, Connect, (const NetworkAddress& remoteAddress), (override));
-    MOCK_METHOD(int, Send, (const std::vector<char>& data), (override));
-    MOCK_METHOD(int, Receive, (std::vector<char>& buffer, int maxSize), (override));
+    MOCK_METHOD(int, Send, (const std::vector<std::byte>& data), (override));
+    MOCK_METHOD(int, Receive, (std::vector<std::byte>& buffer), (override));
     MOCK_METHOD(NetworkAddress, GetRemoteAddress, (), (const, override));
     MOCK_METHOD(bool, SetNoDelay, (bool enable), (override));
     MOCK_METHOD(bool, WaitForDataWithTimeout, (int timeoutMs), (override));
@@ -70,16 +72,16 @@ TEST(TcpSocketTest, SendAndReceiveData) {
     MockTcpSocket mockSocket;
     
     // Test data
-    std::vector<char> testData = {'H', 'e', 'l', 'l', 'o'};
-    std::vector<char> receiveBuffer(5);
+    std::vector<std::byte> testData = {std::byte('H'), std::byte('e'), std::byte('l'), std::byte('l'), std::byte('o')};
+    std::vector<std::byte> receiveBuffer(5);
     
     // Set expectations
     EXPECT_CALL(mockSocket, Send(testing::Eq(testData)))
         .WillOnce(testing::Return(5));
     
-    EXPECT_CALL(mockSocket, Receive(testing::_, testing::_))
-        .WillOnce([&receiveBuffer](std::vector<char>& buffer, int maxSize) {
-            buffer = {'W', 'o', 'r', 'l', 'd'};
+    EXPECT_CALL(mockSocket, Receive(testing::_))
+        .WillOnce([&receiveBuffer](std::vector<std::byte>& buffer) {
+            buffer = {std::byte('W'), std::byte('o'), std::byte('r'), std::byte('l'), std::byte('d')};
             return 5;
         });
     
@@ -87,10 +89,10 @@ TEST(TcpSocketTest, SendAndReceiveData) {
     int bytesSent = mockSocket.Send(testData);
     EXPECT_EQ(bytesSent, 5);
     
-    // Test receiving data - make sure to pass the maxSize parameter
-    int bytesReceived = mockSocket.Receive(receiveBuffer, -1);
+    // Test receiving data
+    int bytesReceived = mockSocket.Receive(receiveBuffer);
     EXPECT_EQ(bytesReceived, 5);
-    EXPECT_EQ(receiveBuffer, std::vector<char>({'W', 'o', 'r', 'l', 'd'}));
+    EXPECT_EQ(receiveBuffer, std::vector<std::byte>({std::byte('W'), std::byte('o'), std::byte('r'), std::byte('l'), std::byte('d')}));
 }
 
 // Sample test for TCP listener
@@ -154,7 +156,7 @@ TEST(TcpSocketTest, ErrorHandling) {
     EXPECT_CALL(mockSocket, Send(testing::_))
         .WillOnce(testing::Return(-1));
     
-    EXPECT_CALL(mockSocket, Receive(testing::_, testing::_))
+    EXPECT_CALL(mockSocket, Receive(testing::_))
         .WillOnce(testing::Return(-1));
     
     // Test invalid socket
@@ -164,12 +166,12 @@ TEST(TcpSocketTest, ErrorHandling) {
     EXPECT_FALSE(mockSocket.Connect(NetworkAddress("192.168.1.1", 8080)));
     
     // Test send failure
-    std::vector<char> sendData = {'T', 'e', 's', 't'};
+    std::vector<std::byte> sendData = {std::byte('T'), std::byte('e'), std::byte('s'), std::byte('t')};
     EXPECT_EQ(mockSocket.Send(sendData), -1);
     
     // Test receive failure
-    std::vector<char> receiveBuffer;
-    EXPECT_EQ(mockSocket.Receive(receiveBuffer, -1), -1);
+    std::vector<std::byte> receiveBuffer;
+    EXPECT_EQ(mockSocket.Receive(receiveBuffer), -1);
 }
 
 // Test for AcceptTcp helper method

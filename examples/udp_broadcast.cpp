@@ -1,4 +1,5 @@
 #include "network/platform_factory.h"
+#include "network/byte_utils.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -18,7 +19,7 @@ int main() {
     
     // Send message
     std::string message = "Hello, network!";
-    int bytesSent = sender->SendTo(std::vector<char>(message.begin(), message.end()), 
+    int bytesSent = sender->SendTo(NetworkUtils::StringToBytes(message), 
                                   NetworkAddress("255.255.255.255", 8084));
     
     std::cout << (bytesSent > 0 ? 

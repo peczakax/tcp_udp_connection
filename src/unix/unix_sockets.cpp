@@ -112,21 +112,21 @@ bool UnixTcpSocket::Connect(const NetworkAddress& remoteAddress) {
     return m_isConnected;
 }
 
-int UnixTcpSocket::Send(const std::vector<char>& data) {
+int UnixTcpSocket::Send(const std::vector<std::byte>& data) {
     if (m_socketFd == -1 || !m_isConnected)
         return -1;
 
-    return send(m_socketFd, data.data(), data.size(), 0);
+    return send(m_socketFd, reinterpret_cast<const char*>(data.data()), data.size(), 0);
 }
 
-int UnixTcpSocket::Receive(std::vector<char>& buffer, int maxSize) {
+int UnixTcpSocket::Receive(std::vector<std::byte>& buffer, int maxSize) {
     if (m_socketFd == -1 || !m_isConnected)
         return -1;
 
     const int bufferSize = (maxSize > 0) ? maxSize : 4096;
-    std::vector<char> tempBuffer(bufferSize, 0);
+    std::vector<std::byte> tempBuffer(bufferSize);
     
-    int bytesRead = recv(m_socketFd, tempBuffer.data(), bufferSize, 0);
+    int bytesRead = recv(m_socketFd, reinterpret_cast<char*>(tempBuffer.data()), bufferSize, 0);
     if (bytesRead > 0) {
         buffer.assign(tempBuffer.begin(), tempBuffer.begin() + bytesRead);
     }
@@ -263,26 +263,26 @@ bool UnixUdpSocket::IsValid() const {
     return m_socketFd != -1;
 }
 
-int UnixUdpSocket::SendTo(const std::vector<char>& data, const NetworkAddress& remoteAddress) {
+int UnixUdpSocket::SendTo(const std::vector<std::byte>& data, const NetworkAddress& remoteAddress) {
     if (m_socketFd == -1)
         return -1;
 
     sockaddr_in addr = CreateSockAddr(remoteAddress);
-    return sendto(m_socketFd, data.data(), data.size(), 0,
+    return sendto(m_socketFd, reinterpret_cast<const char*>(data.data()), data.size(), 0,
                  reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
 }
 
-int UnixUdpSocket::ReceiveFrom(std::vector<char>& buffer, NetworkAddress& remoteAddress, int maxSize) {
+int UnixUdpSocket::ReceiveFrom(std::vector<std::byte>& buffer, NetworkAddress& remoteAddress, int maxSize) {
     if (m_socketFd == -1)
         return -1;
 
     const int bufferSize = (maxSize > 0) ? maxSize : 4096;
-    std::vector<char> tempBuffer(bufferSize, 0);
+    std::vector<std::byte> tempBuffer(bufferSize);
     
     sockaddr_in fromAddr = {};
     socklen_t fromLen = sizeof(fromAddr);
     
-    int bytesRead = recvfrom(m_socketFd, tempBuffer.data(), bufferSize, 0,
+    int bytesRead = recvfrom(m_socketFd, reinterpret_cast<char*>(tempBuffer.data()), bufferSize, 0,
                            reinterpret_cast<sockaddr*>(&fromAddr), &fromLen);
     
     if (bytesRead > 0) {

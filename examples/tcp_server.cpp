@@ -1,4 +1,5 @@
 #include "network/platform_factory.h"
+#include "network/byte_utils.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -33,15 +34,15 @@ int main() {
               << clientSocket->GetRemoteAddress().ipAddress << ":" 
               << clientSocket->GetRemoteAddress().port << std::endl;
     
-    std::vector<char> buffer;
+    std::vector<std::byte> buffer;
     int bytesRead = clientSocket->Receive(buffer);
     
     if (bytesRead > 0) {
-        std::string message(buffer.begin(), buffer.end());
+        std::string message = NetworkUtils::BytesToString(buffer);
         std::cout << "Received " << bytesRead << " bytes: " << message << std::endl;
         
         std::string response = "Hello, client! Your message was received.";
-        int bytesSent = clientSocket->Send(std::vector<char>(response.begin(), response.end()));
+        int bytesSent = clientSocket->Send(NetworkUtils::StringToBytes(response));
         std::cout << "Sent " << bytesSent << " bytes response" << std::endl;
     }
     

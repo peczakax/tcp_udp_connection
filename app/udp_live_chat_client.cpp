@@ -19,6 +19,7 @@
 #include "network/network.h"
 #include "network/udp_socket.h"
 #include "network/platform_factory.h"
+#include "network/byte_utils.h"  // Added byte utils header
 
 // Default server settings
 constexpr int DEFAULT_PORT = 8085;  // Match UDP chat server port
@@ -43,8 +44,7 @@ private:
 
     // Function to receive and display messages from the server
     void receiveMessages() {
-        std::vector<char> buffer;
-        buffer.resize(DEFAULT_BUFFER_SIZE, 0);
+        std::vector<std::byte> buffer(DEFAULT_BUFFER_SIZE); // Changed to std::byte buffer
         
         while (running) {
             try {
@@ -52,6 +52,7 @@ private:
                 if (socket->WaitForDataWithTimeout(RECEIVE_TIMEOUT_MS)) {
                     // Clear buffer before receiving new data
                     buffer.clear();
+                    buffer.resize(DEFAULT_BUFFER_SIZE);
                     
                     NetworkAddress sender;
                     int bytesRead = socket->ReceiveFrom(buffer, sender);
@@ -61,12 +62,14 @@ private:
                         continue;
                     }
                     
-                    // Ensure the buffer is properly sized and null-terminated for string conversion
+                    // Resize buffer to actual data received
                     buffer.resize(bytesRead);
-                    buffer.push_back('\0');
+                    
+                    // Convert bytes to string for display
+                    std::string message = NetworkUtils::BytesToString(buffer);
                     
                     // Print the message
-                    std::cout << buffer.data();
+                    std::cout << message;
                     
                     // Add a prompt after each message for better UX, including username
                     std::cout << username << "> " << std::flush;
@@ -87,7 +90,7 @@ private:
         
         while (running) {
             try {
-                std::vector<char> data(heartbeatMsg.begin(), heartbeatMsg.end());
+                std::vector<std::byte> data = NetworkUtils::StringToBytes(heartbeatMsg);
                 socket->SendTo(data, serverAddress);
             } catch (const std::exception& e) {
                 if (running) {
@@ -124,7 +127,7 @@ public:
             
             // Send registration message with username
             std::string registerMsg = "REGISTER:" + username;
-            std::vector<char> data(registerMsg.begin(), registerMsg.end());
+            std::vector<std::byte> data = NetworkUtils::StringToBytes(registerMsg);
             socket->SendTo(data, serverAddress);
             
             // Start the message receiving thread
@@ -158,7 +161,7 @@ public:
             if (message == "/quit") {
                 // Send quit command to server before disconnecting
                 try {
-                    std::vector<char> data(message.begin(), message.end());
+                    std::vector<std::byte> data = NetworkUtils::StringToBytes(message);
                     socket->SendTo(data, serverAddress);
                 } catch (...) {}
                 
@@ -168,7 +171,7 @@ public:
             
             if (!message.empty()) {
                 try {
-                    std::vector<char> data(message.begin(), message.end());
+                    std::vector<std::byte> data = NetworkUtils::StringToBytes(message);
                     socket->SendTo(data, serverAddress);
                     
                     // Don't print prompt if the command will yield a server response
@@ -194,7 +197,7 @@ public:
         // Try to send a quit message to the server
         try {            
             std::string quitMsg = "/quit";
-            std::vector<char> data(quitMsg.begin(), quitMsg.end());
+            std::vector<std::byte> data = NetworkUtils::StringToBytes(quitMsg);
             socket->SendTo(data, serverAddress);
         } catch (...) {}
         
@@ -224,7 +227,7 @@ public:
             // Send a quick disconnect message if possible
             try {
                 std::string quitMsg = "/quit";
-                std::vector<char> data(quitMsg.begin(), quitMsg.end());
+                std::vector<std::byte> data = NetworkUtils::StringToBytes(quitMsg);
                 socket->SendTo(data, serverAddress);
             } catch (...) {} // Ignore errors
             

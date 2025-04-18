@@ -1,4 +1,5 @@
 #include "network/platform_factory.h"
+#include "network/byte_utils.h"
 #include <iostream>
 #include <string>
 #include <thread>
@@ -33,18 +34,18 @@ int main() {
     
     // Start receive thread
     std::thread receiveThread([&receiver]() {
-        std::vector<char> buffer;
+        std::vector<std::byte> buffer;
         NetworkAddress sender;
         
         if (receiver->ReceiveFrom(buffer, sender) > 0) {
-            std::string message(buffer.begin(), buffer.end());
+            std::string message = NetworkUtils::BytesToString(buffer);
             std::cout << "Received: " << message << std::endl;
         }
     });
     
     // Send multicast message
     std::this_thread::sleep_for(std::chrono::seconds(1));
-    std::vector<char> data(message.begin(), message.end());
+    std::vector<std::byte> data = NetworkUtils::StringToBytes(message);
     
     std::cout << "Sending message..." << std::endl;
     if (sender->SendTo(data, multicastGroup) > 0) {

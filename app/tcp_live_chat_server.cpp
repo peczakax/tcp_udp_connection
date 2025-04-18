@@ -1,14 +1,16 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <map>
+#include <unordered_map>  // Add missing include
 #include <thread>
 #include <mutex>
-#include <unordered_map>
-#include <functional>
-#include <atomic>
-#include <chrono>
-#include <ctime>
 #include <memory>
+#include <sstream>
+#include <ctime>
+#include <atomic>
+#include <algorithm>
+#include <condition_variable>
 
 // Platform-specific headers
 #ifdef _WIN32
@@ -17,9 +19,11 @@
 #include <signal.h>
 #endif
 
+// Include public network interfaces
 #include "network/network.h"
 #include "network/tcp_socket.h"
 #include "network/platform_factory.h"
+#include "network/byte_utils.h"  // Added byte utils header
 
 // Default port for the chat server
 constexpr int DEFAULT_PORT = 8084;
@@ -92,7 +96,7 @@ private:
             if (id != senderId && client.authenticated && client.socket && client.socket->IsValid()) {
                 try {
                     std::string formattedMessage = getTimestamp() + message + "\n";
-                    std::vector<char> data(formattedMessage.begin(), formattedMessage.end());
+                    std::vector<std::byte> data = NetworkUtils::StringToBytes(formattedMessage);
                     client.socket->Send(data);
                 } catch (const std::exception& e) {
                     std::cerr << "Error sending to client " << id << ": " << e.what() << std::endl;
@@ -120,7 +124,7 @@ private:
             if (client.authenticated && client.username == targetUsername && client.socket && client.socket->IsValid()) {
                 try {
                     std::string formattedMessage = getTimestamp() + "[Private from " + senderUsername + "]: " + message + "\n";
-                    std::vector<char> data(formattedMessage.begin(), formattedMessage.end());
+                    std::vector<std::byte> data = NetworkUtils::StringToBytes(formattedMessage);
                     client.socket->Send(data);
                     userFound = true;
                     break;
@@ -136,7 +140,7 @@ private:
             clients[senderId].socket && clients[senderId].socket->IsValid()) {
             try {
                 std::string confirmation = getTimestamp() + "[Private to " + targetUsername + "]: " + message + "\n";
-                std::vector<char> data(confirmation.begin(), confirmation.end());
+                std::vector<std::byte> data = NetworkUtils::StringToBytes(confirmation);
                 clients[senderId].socket->Send(data);
             } catch (const std::exception& e) {
                 std::cerr << "Error sending confirmation to sender: " << e.what() << std::endl;
@@ -192,7 +196,7 @@ private:
             return;
         }
         
-        std::vector<char> buffer;  // Empty buffer to start with
+        std::vector<std::byte> buffer;  // Changed to std::byte buffer
         
         try {
             // First message from client should be their username
@@ -202,8 +206,8 @@ private:
                 throw std::runtime_error("Client disconnected during authentication");
             }
             
-            // Create a properly null-terminated string from the buffer
-            std::string username(buffer.begin(), buffer.end());
+            // Convert received bytes to string
+            std::string username = NetworkUtils::BytesToString(buffer);
             
             // Trim any trailing newlines or whitespace from username
             auto removeSpecialChars = [](std::string& str, const std::string& chars) {
@@ -240,7 +244,7 @@ private:
             
             // Send welcome message to the client
             std::string welcomeMsg = getTimestamp() + "Welcome to the chat, " + username + "!\n";
-            std::vector<char> welcomeData(welcomeMsg.begin(), welcomeMsg.end());
+            std::vector<std::byte> welcomeData = NetworkUtils::StringToBytes(welcomeMsg);
             clients[clientId].socket->Send(welcomeData);
             
             // Main message processing loop
@@ -257,8 +261,8 @@ private:
                         break;  // Client disconnected
                     }
                     
-                    // Create a properly terminated string from the buffer
-                    std::string message(buffer.begin(), buffer.end());
+                    // Convert received bytes to string
+                    std::string message = NetworkUtils::BytesToString(buffer);
                     
                     // Trim any trailing newlines or whitespace from message
                     message.erase(std::remove(message.begin(), message.end(), '\n'), message.end());
@@ -293,7 +297,7 @@ private:
                                 }
                             }
                         }
-                        std::vector<char> listData(userList.begin(), userList.end());
+                        std::vector<std::byte> listData = NetworkUtils::StringToBytes(userList);
                         clients[clientId].socket->Send(listData);
                     } else if (message.rfind("/msg ", 0) == 0) {
                         // Private message command
@@ -303,12 +307,12 @@ private:
                             std::string privateMessage = message.substr(spacePos + 1);
                             if (!sendPrivateMessage(targetUsername, privateMessage, clientId)) {
                                 std::string errorMsg = getTimestamp() + "User " + targetUsername + " not found.\n";
-                                std::vector<char> errorData(errorMsg.begin(), errorMsg.end());
+                                std::vector<std::byte> errorData = NetworkUtils::StringToBytes(errorMsg);
                                 clients[clientId].socket->Send(errorData);
                             }
                         } else {
                             std::string errorMsg = getTimestamp() + "Invalid private message format. Use /msg <username> <message>\n";
-                            std::vector<char> errorData(errorMsg.begin(), errorMsg.end());
+                            std::vector<std::byte> errorData = NetworkUtils::StringToBytes(errorMsg);
                             clients[clientId].socket->Send(errorData);
                         }
                     } else {

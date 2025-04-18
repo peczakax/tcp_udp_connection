@@ -13,8 +13,8 @@ public:
     MOCK_METHOD(NetworkAddress, GetLocalAddress, (), (const, override));
     MOCK_METHOD(bool, IsValid, (), (const, override));
     MOCK_METHOD(bool, Connect, (const NetworkAddress& remoteAddress), (override));
-    MOCK_METHOD(int, Send, (const std::vector<char>& data), (override));
-    MOCK_METHOD(int, Receive, (std::vector<char>& buffer, int maxSize), (override));
+    MOCK_METHOD(int, Send, (const std::vector<std::byte>& data), (override));
+    MOCK_METHOD(int, Receive, (std::vector<std::byte>& buffer), (override));
     MOCK_METHOD(NetworkAddress, GetRemoteAddress, (), (const, override));
     MOCK_METHOD(bool, SetNoDelay, (bool enable), (override));
     MOCK_METHOD(bool, WaitForDataWithTimeout, (int timeoutMs), (override));

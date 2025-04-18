@@ -1,7 +1,9 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include "network/udp_socket.h"
+#include "network/byte_utils.h"
 #include <memory>
+#include <cstddef> // For std::byte
 
 // Mock class for UDP socket
 class MockUdpSocket : public IUdpSocket {
@@ -10,8 +12,8 @@ public:
     MOCK_METHOD(bool, Bind, (const NetworkAddress& localAddress), (override));
     MOCK_METHOD(NetworkAddress, GetLocalAddress, (), (const, override));
     MOCK_METHOD(bool, IsValid, (), (const, override));
-    MOCK_METHOD(int, SendTo, (const std::vector<char>& data, const NetworkAddress& remoteAddress), (override));
-    MOCK_METHOD(int, ReceiveFrom, (std::vector<char>& buffer, NetworkAddress& remoteAddress, int maxSize), (override));
+    MOCK_METHOD(int, SendTo, (const std::vector<std::byte>& data, const NetworkAddress& remoteAddress), (override));
+    MOCK_METHOD(int, ReceiveFrom, (std::vector<std::byte>& buffer, NetworkAddress& remoteAddress), (override));
     MOCK_METHOD(bool, SetBroadcast, (bool enable), (override));
     MOCK_METHOD(bool, JoinMulticastGroup, (const NetworkAddress& groupAddress), (override));
     MOCK_METHOD(bool, LeaveMulticastGroup, (const NetworkAddress& groupAddress), (override));
@@ -57,8 +59,8 @@ TEST(UdpSocketTest, SendToAndReceiveFrom) {
     MockUdpSocket mockSocket;
     
     // Test data and addresses
-    std::vector<char> testData = {'H', 'e', 'l', 'l', 'o'};
-    std::vector<char> receiveBuffer(5);
+    std::vector<std::byte> testData = {std::byte('H'), std::byte('e'), std::byte('l'), std::byte('l'), std::byte('o')};
+    std::vector<std::byte> receiveBuffer(5);
     NetworkAddress sendToAddr("192.168.1.100", 8080);
     NetworkAddress receiveFromAddr;
     
@@ -66,9 +68,9 @@ TEST(UdpSocketTest, SendToAndReceiveFrom) {
     EXPECT_CALL(mockSocket, SendTo(testing::Eq(testData), testing::_))
         .WillOnce(testing::Return(5));
     
-    EXPECT_CALL(mockSocket, ReceiveFrom(testing::_, testing::_, testing::_))
-        .WillOnce([&receiveBuffer](std::vector<char>& buffer, NetworkAddress& remoteAddr, int maxSize) {
-            buffer = {'W', 'o', 'r', 'l', 'd'};
+    EXPECT_CALL(mockSocket, ReceiveFrom(testing::_, testing::_))
+        .WillOnce([&receiveBuffer](std::vector<std::byte>& buffer, NetworkAddress& remoteAddr) {
+            buffer = {std::byte('W'), std::byte('o'), std::byte('r'), std::byte('l'), std::byte('d')};
             remoteAddr = NetworkAddress("192.168.1.200", 9090);
             return 5;
         });
@@ -77,10 +79,10 @@ TEST(UdpSocketTest, SendToAndReceiveFrom) {
     int bytesSent = mockSocket.SendTo(testData, sendToAddr);
     EXPECT_EQ(bytesSent, 5);
     
-    // Test receiving data - passing the maxSize parameter
-    int bytesReceived = mockSocket.ReceiveFrom(receiveBuffer, receiveFromAddr, -1);
+    // Test receiving data
+    int bytesReceived = mockSocket.ReceiveFrom(receiveBuffer, receiveFromAddr);
     EXPECT_EQ(bytesReceived, 5);
-    EXPECT_EQ(receiveBuffer, std::vector<char>({'W', 'o', 'r', 'l', 'd'}));
+    EXPECT_EQ(receiveBuffer, std::vector<std::byte>({std::byte('W'), std::byte('o'), std::byte('r'), std::byte('l'), std::byte('d')}));
     EXPECT_EQ(receiveFromAddr.ipAddress, "192.168.1.200");
     EXPECT_EQ(receiveFromAddr.port, 9090);
 }
@@ -145,21 +147,21 @@ TEST(UdpSocketTest, ErrorHandling) {
     EXPECT_CALL(mockSocket, SendTo(testing::_, testing::_))
         .WillOnce(testing::Return(-1));
     
-    EXPECT_CALL(mockSocket, ReceiveFrom(testing::_, testing::_, testing::_))
+    EXPECT_CALL(mockSocket, ReceiveFrom(testing::_, testing::_))
         .WillOnce(testing::Return(-1));
     
     // Test invalid socket
     EXPECT_FALSE(mockSocket.IsValid());
     
     // Test send failure
-    std::vector<char> sendData = {'T', 'e', 's', 't'};
+    std::vector<std::byte> sendData = {std::byte('T'), std::byte('e'), std::byte('s'), std::byte('t')};
     NetworkAddress destination("192.168.1.1", 8080);
     EXPECT_EQ(mockSocket.SendTo(sendData, destination), -1);
     
     // Test receive failure
-    std::vector<char> receiveBuffer;
+    std::vector<std::byte> receiveBuffer;
     NetworkAddress source;
-    EXPECT_EQ(mockSocket.ReceiveFrom(receiveBuffer, source, -1), -1);
+    EXPECT_EQ(mockSocket.ReceiveFrom(receiveBuffer, source), -1);
 }
 
 // Test for multicast error handling

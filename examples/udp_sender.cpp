@@ -1,4 +1,5 @@
 #include "network/platform_factory.h"
+#include "network/byte_utils.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -10,7 +11,7 @@ int main() {
     auto socket = factory->CreateUdpSocket();
     
     std::string message = "Hello, UDP receiver!";
-    std::vector<char> data(message.begin(), message.end());
+    std::vector<std::byte> data = NetworkUtils::StringToBytes(message);
     
     int bytesSent = socket->SendTo(data, NetworkAddress("127.0.0.1", 8082));
     

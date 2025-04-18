@@ -1,26 +1,30 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <map>
 #include <unordered_map>
-#include <mutex>
 #include <thread>
-#include <atomic>
-#include <functional>
-#include <chrono>
+#include <mutex>
+#include <memory>
+#include <sstream>
 #include <ctime>
+#include <atomic>
+#include <condition_variable>
+#include <algorithm>
+#include <chrono>
 
 // Platform-specific headers
 #ifdef _WIN32
 #include <windows.h>
 #else
 #include <signal.h>
-#include <arpa/inet.h> // For sockaddr_in structure and related functions
 #endif
 
-// Include public network interfaces
+// Include network interfaces
 #include "network/network.h"
 #include "network/udp_socket.h"
 #include "network/platform_factory.h"
+#include "network/byte_utils.h"  // Added byte utils header
 
 // Default port for the chat server
 constexpr int DEFAULT_PORT = 8085;
@@ -100,7 +104,7 @@ private:
     // Send message to a specific client
     void sendToClient(const NetworkAddress& addr, const std::string& message) {
         try {
-            std::vector<char> data(message.begin(), message.end());
+            std::vector<std::byte> data = NetworkUtils::StringToBytes(message);
             socket->SendTo(data, addr);
         } catch (const std::exception& e) {
             std::cerr << "Error sending to client: " << e.what() << std::endl;
@@ -124,7 +128,7 @@ private:
                 
                 try {
                     // Send the formatted message to this client
-                    std::vector<char> data(formattedMessage.begin(), formattedMessage.end());
+                    std::vector<std::byte> data = NetworkUtils::StringToBytes(formattedMessage);
                     socket->SendTo(data, addr);
                 } catch (const std::exception& e) {
                     std::cerr << "Error broadcasting to client: " << e.what() << std::endl;
@@ -163,8 +167,8 @@ private:
                     std::string formattedMessage = getTimestamp() + "[Private from " + 
                                                   senderUsername + "]: " + message + "\n";
                                                   
-                    // Send the message to the recipient
-                    std::vector<char> data(formattedMessage.begin(), formattedMessage.end());
+                    // Send the message to the recipient using byte conversion
+                    std::vector<std::byte> data = NetworkUtils::StringToBytes(formattedMessage);
                     socket->SendTo(data, addr);
                     userFound = true;
                     
@@ -173,7 +177,7 @@ private:
                         std::string confirmation = getTimestamp() + "[Private to " + 
                                                  targetUsername + "]: " + message + "\n";
                                                  
-                        std::vector<char> confirmData(confirmation.begin(), confirmation.end());
+                        std::vector<std::byte> confirmData = NetworkUtils::StringToBytes(confirmation);
                         socket->SendTo(confirmData, *sender);
                     }
                     break;
@@ -227,10 +231,7 @@ private:
     }
     
     // Handle client messages
-    void handleMessage(const std::vector<char>& data, const NetworkAddress& clientAddr) {
-        // Convert binary data to a C++ string for easier processing
-        std::string message(data.begin(), data.end());
-        
+    void handleMessage(const std::string& message, const NetworkAddress& clientAddr) {
         // Update client's last activity timestamp to prevent timeout
         {
             std::lock_guard<std::mutex> lock(clientsMutex);
@@ -371,14 +372,14 @@ private:
     // Continuously receive incoming data
     void receiveMessages() {
         // Buffer for incoming data
-        std::vector<char> buffer;
+        std::vector<std::byte> buffer;
         
         while (isRunning.load() && running.load()) {
             try {
                 if (socket->WaitForDataWithTimeout(100)) {
                     // Clear the buffer before receiving new data
                     buffer.clear();
-                    buffer.resize(4096, 0);
+                    buffer.resize(4096);
                     
                     // Only try to receive if data is available
                     NetworkAddress clientAddress;
@@ -388,8 +389,11 @@ private:
                         // Resize buffer to actual received data size
                         buffer.resize(bytesReceived);
                         
+                        // Convert std::byte buffer to string
+                        std::string message = NetworkUtils::BytesToString(buffer);
+                        
                         // Handle the received message
-                        handleMessage(buffer, clientAddress);
+                        handleMessage(message, clientAddress);
                     }
                 }
             } catch (const std::exception& e) {

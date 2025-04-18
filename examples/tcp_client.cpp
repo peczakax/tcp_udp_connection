@@ -1,4 +1,5 @@
 #include "network/platform_factory.h"
+#include "network/byte_utils.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -17,15 +18,15 @@ int main() {
         
         // Send data
         std::string message = "Hello, server!";
-        int bytesSent = socket->Send(std::vector<char>(message.begin(), message.end()));
+        int bytesSent = socket->Send(NetworkUtils::StringToBytes(message));
         std::cout << "Sent " << bytesSent << " bytes: " << message << std::endl;
         
         // Receive response
-        std::vector<char> response;
+        std::vector<std::byte> response;
         int bytesRead = socket->Receive(response);
         
         if (bytesRead > 0) {
-            std::cout << "Received: " << std::string(response.begin(), response.end()) << std::endl;
+            std::cout << "Received: " << NetworkUtils::BytesToString(response) << std::endl;
         } else {
             std::cout << "Failed to receive response" << std::endl;
         }

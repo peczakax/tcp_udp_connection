@@ -1,4 +1,5 @@
 #include "network/platform_factory.h"
+#include "network/byte_utils.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -16,7 +17,7 @@ int main() {
     
     std::cout << "UDP receiver bound to port 8082, waiting for messages..." << std::endl;
     
-    std::vector<char> buffer;
+    std::vector<std::byte> buffer;
     NetworkAddress sender;
     
     int bytesRead = socket->ReceiveFrom(buffer, sender);
@@ -26,14 +27,14 @@ int main() {
         return 1;
     }
     
-    std::string message(buffer.begin(), buffer.end());
+    std::string message = NetworkUtils::BytesToString(buffer);
     std::cout << "Received " << bytesRead << " bytes from " 
               << sender.ipAddress << ":" << sender.port 
               << ": " << message << std::endl;
     
     // Send response
     std::string response = "Message received!";
-    socket->SendTo(std::vector<char>(response.begin(), response.end()), sender);
+    socket->SendTo(NetworkUtils::StringToBytes(response), sender);
     
     return 0;
 }

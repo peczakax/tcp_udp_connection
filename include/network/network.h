@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <memory>
+#include <cstddef> // For std::byte
 
 // Structure to hold network address information (IP and port)
 struct NetworkAddress {
@@ -11,7 +12,7 @@ struct NetworkAddress {
     unsigned short port;
     
     // Constructor for easy initialization
-    NetworkAddress(const std::string& ip = "", unsigned short p = 0)
+    NetworkAddress(const std::string& ip = "", const unsigned short p = 0)
         : ipAddress(ip), port(p) {}
 };
 
@@ -35,8 +36,8 @@ class IConnectionOrientedSocket : public ISocketBase {
 public:
     // Operations specific to connection-oriented sockets
     virtual bool Connect(const NetworkAddress& remoteAddress) = 0;
-    virtual int Send(const std::vector<char>& data) = 0;
-    virtual int Receive(std::vector<char>& buffer, int maxSize = -1) = 0;
+    virtual int Send(const std::vector<std::byte>& data) = 0;
+    virtual int Receive(std::vector<std::byte>& buffer) = 0;
     virtual NetworkAddress GetRemoteAddress() const = 0;
 };
 
@@ -52,8 +53,8 @@ public:
 class IConnectionlessSocket : public ISocketBase {
 public:
     // Operations specific to connectionless sockets
-    virtual int SendTo(const std::vector<char>& data, const NetworkAddress& remoteAddress) = 0;
-    virtual int ReceiveFrom(std::vector<char>& buffer, NetworkAddress& remoteAddress, int maxSize = -1) = 0;
+    virtual int SendTo(const std::vector<std::byte>& data, const NetworkAddress& remoteAddress) = 0;
+    virtual int ReceiveFrom(std::vector<std::byte>& buffer, NetworkAddress& remoteAddress) = 0;
 };
 
 #endif // NETWORK_H
