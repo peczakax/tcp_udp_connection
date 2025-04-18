@@ -85,6 +85,7 @@ WindowsTcpSocket::~WindowsTcpSocket() {
 
 void WindowsTcpSocket::Close() {
     if (m_socket != INVALID_SOCKET) {
+        std::cerr << "Closing TCP socket: " << m_socket << std::endl;
         closesocket(m_socket);
         m_socket = INVALID_SOCKET;
         m_isConnected = false;
@@ -92,11 +93,29 @@ void WindowsTcpSocket::Close() {
 }
 
 bool WindowsTcpSocket::Bind(const NetworkAddress& localAddress) {
-    if (m_socket == INVALID_SOCKET)
+    if (m_socket == INVALID_SOCKET) {
+        std::cerr << "Bind failed: Invalid TCP socket." << std::endl;
         return false;
+    }
+
+    // Enable SO_REUSEADDR
+    BOOL reuseAddr = TRUE;
+    if (setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char*>(&reuseAddr), sizeof(reuseAddr)) != 0) {
+        int error = WSAGetLastError();
+        std::cerr << "setsockopt(SO_REUSEADDR) failed with error: " << error << std::endl;
+        // Continue anyway, but log the error
+    }
 
     sockaddr_in addr = CreateSockAddr(localAddress);
-    return (bind(m_socket, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == 0);
+    std::cerr << "Binding TCP socket " << m_socket << " to " << localAddress.ipAddress << ":" << localAddress.port << std::endl;
+    int result = bind(m_socket, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
+    if (result != 0) {
+        int error = WSAGetLastError();
+        std::cerr << "Bind failed with error: " << error << std::endl;
+        return false;
+    }
+    std::cerr << "Bind successful." << std::endl;
+    return true;
 }
 
 NetworkAddress WindowsTcpSocket::GetLocalAddress() const {
@@ -229,17 +248,36 @@ WindowsTcpListener::~WindowsTcpListener() {
 
 void WindowsTcpListener::Close() {
     if (m_socket != INVALID_SOCKET) {
+        std::cerr << "Closing TCP listener socket: " << m_socket << std::endl;
         closesocket(m_socket);
         m_socket = INVALID_SOCKET;
     }
 }
 
 bool WindowsTcpListener::Bind(const NetworkAddress& localAddress) {
-    if (m_socket == INVALID_SOCKET)
+    if (m_socket == INVALID_SOCKET) {
+        std::cerr << "Bind failed: Invalid TCP listener socket." << std::endl;
         return false;
+    }
+
+    // Enable SO_REUSEADDR
+    BOOL reuseAddr = TRUE;
+    if (setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char*>(&reuseAddr), sizeof(reuseAddr)) != 0) {
+        int error = WSAGetLastError();
+        std::cerr << "setsockopt(SO_REUSEADDR) for listener failed with error: " << error << std::endl;
+        // Continue anyway, but log the error
+    }
 
     sockaddr_in addr = CreateSockAddr(localAddress);
-    return (bind(m_socket, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == 0);
+    std::cerr << "Binding TCP listener " << m_socket << " to " << localAddress.ipAddress << ":" << localAddress.port << std::endl;
+    int result = bind(m_socket, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
+    if (result != 0) {
+        int error = WSAGetLastError();
+        std::cerr << "Listener bind failed with error: " << error << std::endl;
+        return false;
+    }
+    std::cerr << "Listener bind successful." << std::endl;
+    return true;
 }
 
 NetworkAddress WindowsTcpListener::GetLocalAddress() const {
@@ -291,17 +329,36 @@ WindowsUdpSocket::~WindowsUdpSocket() {
 
 void WindowsUdpSocket::Close() {
     if (m_socket != INVALID_SOCKET) {
+        std::cerr << "Closing UDP socket: " << m_socket << std::endl;
         closesocket(m_socket);
         m_socket = INVALID_SOCKET;
     }
 }
 
 bool WindowsUdpSocket::Bind(const NetworkAddress& localAddress) {
-    if (m_socket == INVALID_SOCKET)
+    if (m_socket == INVALID_SOCKET) {
+        std::cerr << "Bind failed: Invalid UDP socket." << std::endl;
         return false;
+    }
+
+    // Enable SO_REUSEADDR for UDP sockets as well
+    BOOL reuseAddr = TRUE;
+    if (setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char*>(&reuseAddr), sizeof(reuseAddr)) != 0) {
+        int error = WSAGetLastError();
+        std::cerr << "setsockopt(SO_REUSEADDR) for UDP failed with error: " << error << std::endl;
+        // Continue anyway, but log the error
+    }
 
     sockaddr_in addr = CreateSockAddr(localAddress);
-    return (bind(m_socket, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == 0);
+    std::cerr << "Binding UDP socket " << m_socket << " to " << localAddress.ipAddress << ":" << localAddress.port << std::endl;
+    int result = bind(m_socket, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
+    if (result != 0) {
+        int error = WSAGetLastError();
+        std::cerr << "UDP bind failed with error: " << error << std::endl;
+        return false;
+    }
+    std::cerr << "UDP bind successful." << std::endl;
+    return true;
 }
 
 NetworkAddress WindowsUdpSocket::GetLocalAddress() const {
