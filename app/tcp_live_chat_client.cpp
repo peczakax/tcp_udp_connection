@@ -6,6 +6,7 @@
 #include <condition_variable>
 #include <mutex>
 #include <vector>
+#include <cstddef>
 
 // Platform-specific headers
 #ifdef _WIN32
@@ -18,6 +19,7 @@
 #include "network/network.h"
 #include "network/tcp_socket.h"
 #include "network/platform_factory.h"
+#include "network/byte_utils.h"
 
 // Default server settings
 constexpr int DEFAULT_PORT = 8084;
@@ -38,7 +40,7 @@ private:
 
     // Function to receive and display messages from the server
     void receiveMessages() {
-        std::vector<char> buffer;
+        std::vector<std::byte> buffer;
         
         while (running && socket && socket->IsValid()) {
             try {
@@ -54,10 +56,10 @@ private:
                         break;
                     }
                     
-                    // Null-terminate the received data for printing
-                    buffer.push_back('\0');
+                    // Convert bytes to string and display
+                    std::string message = NetworkUtils::BytesToString(buffer);
                     
-                    std::cout << buffer.data();
+                    std::cout << message;
                     
                     // Add a prompt after each message for better UX, including username
                     std::cout << username << "> " << std::flush;
@@ -98,7 +100,7 @@ public:
             }
             
             // Send username as the first message
-            std::vector<char> usernameData(username.begin(), username.end());
+            std::vector<std::byte> usernameData = NetworkUtils::StringToBytes(username);
             if (!socket->Send(usernameData)) {
                 std::cerr << "Failed to send username to server" << std::endl;
                 return false;
@@ -141,7 +143,7 @@ public:
             if (message == "/quit") {
                 // Send quit command to server before disconnecting
                 try {
-                    std::vector<char> quitMsg(message.begin(), message.end());
+                    std::vector<std::byte> quitMsg = NetworkUtils::StringToBytes(message);
                     socket->Send(quitMsg);
                 } catch (...) {}
                 
@@ -150,8 +152,8 @@ public:
             }
             
             try {
-                // Create message data vector
-                std::vector<char> msgData(message.begin(), message.end());
+                // Convert string message to byte vector
+                std::vector<std::byte> msgData = NetworkUtils::StringToBytes(message);
                 
                 // Send the message
                 if (!socket->Send(msgData)) {

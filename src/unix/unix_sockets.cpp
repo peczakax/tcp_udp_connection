@@ -40,6 +40,7 @@ namespace {
 
 // Implementation of the helper function for WaitForDataWithTimeout
 namespace UnixSocketHelpers {
+
     bool WaitForDataWithTimeout(int socketFd, int timeoutMs) {
         if (socketFd == -1)
             return false;
@@ -48,12 +49,13 @@ namespace UnixSocketHelpers {
         FD_ZERO(&readSet);
         FD_SET(socketFd, &readSet);
 
-        struct timeval timeout;
+        struct timespec timeout;
         timeout.tv_sec = timeoutMs / 1000;
-        timeout.tv_usec = (timeoutMs % 1000) * 1000;
+        timeout.tv_nsec = (timeoutMs % 1000) * 1000000; // convert to nanoseconds
 
-        // Use select to wait for data with timeout
-        int result = select(socketFd + 1, &readSet, NULL, NULL, &timeout);
+        // Use pselect to wait for data with timeout
+        // Pass NULL for sigmask to maintain current signal mask
+        int result = pselect(socketFd + 1, &readSet, NULL, NULL, &timeout, NULL);
 
         // Return true if socket has data available
         return (result > 0 && FD_ISSET(socketFd, &readSet));
@@ -108,7 +110,7 @@ bool UnixTcpSocket::Connect(const NetworkAddress& remoteAddress) {
 
     sockaddr_in addr = CreateSockAddr(remoteAddress);
     int result = connect(m_socketFd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
-    m_isConnected = (result == 0);
+    m_isConnected = (result == 0);  // Connect returns 0 on success, not non-zero
     return m_isConnected;
 }
 
@@ -119,11 +121,11 @@ int UnixTcpSocket::Send(const std::vector<std::byte>& data) {
     return send(m_socketFd, reinterpret_cast<const char*>(data.data()), data.size(), 0);
 }
 
-int UnixTcpSocket::Receive(std::vector<std::byte>& buffer, int maxSize) {
+int UnixTcpSocket::Receive(std::vector<std::byte>& buffer) {
     if (m_socketFd == -1 || !m_isConnected)
         return -1;
 
-    const int bufferSize = (maxSize > 0) ? maxSize : 4096;
+    const int bufferSize = 4096;
     std::vector<std::byte> tempBuffer(bufferSize);
     
     int bytesRead = recv(m_socketFd, reinterpret_cast<char*>(tempBuffer.data()), bufferSize, 0);
@@ -272,11 +274,11 @@ int UnixUdpSocket::SendTo(const std::vector<std::byte>& data, const NetworkAddre
                  reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
 }
 
-int UnixUdpSocket::ReceiveFrom(std::vector<std::byte>& buffer, NetworkAddress& remoteAddress, int maxSize) {
+int UnixUdpSocket::ReceiveFrom(std::vector<std::byte>& buffer, NetworkAddress& remoteAddress) {
     if (m_socketFd == -1)
         return -1;
 
-    const int bufferSize = (maxSize > 0) ? maxSize : 4096;
+    const int bufferSize = 4096;
     std::vector<std::byte> tempBuffer(bufferSize);
     
     sockaddr_in fromAddr = {};

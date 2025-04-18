@@ -2,6 +2,7 @@
 
 #include "windows_sockets.h"
 #include <stdexcept>
+#include <iostream> // Add this include for std::cerr and std::endl
 
 // Helper functions
 namespace {
@@ -62,6 +63,15 @@ namespace WindowsSocketHelpers {
 // WindowsTcpSocket Implementation
 WindowsTcpSocket::WindowsTcpSocket() 
     : m_socket(INVALID_SOCKET), m_isConnected(false) {
+    // Ensure Winsock is initialized before creating socket
+    static bool winsockInitialized = false;
+    if (!winsockInitialized) {
+        WSADATA wsaData;
+        if (WSAStartup(MAKEWORD(2, 2), &wsaData) == 0) {
+            winsockInitialized = true;
+        }
+    }
+    
     m_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 }
 
@@ -105,9 +115,58 @@ bool WindowsTcpSocket::Connect(const NetworkAddress& remoteAddress) {
     if (m_socket == INVALID_SOCKET)
         return false;
 
+    // Make sure socket is in non-blocking mode
+    u_long mode = 1;  // 1 = non-blocking mode
+    if (ioctlsocket(m_socket, FIONBIO, &mode) != 0) {
+        int error = WSAGetLastError();
+        std::cerr << "Failed to set non-blocking mode: " << error << std::endl;
+        m_isConnected = false;
+        return false;
+    }
+
     sockaddr_in addr = CreateSockAddr(remoteAddress);
     int result = connect(m_socket, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
-    m_isConnected = (result == 0);
+    
+    // Check for socket errors
+    if (result != 0) {
+        int errorCode = WSAGetLastError();
+        // WSAEWOULDBLOCK means the connection is in progress (non-blocking sockets)
+        // WSAEALREADY means the connection is already in progress
+        if (errorCode != WSAEWOULDBLOCK && errorCode != WSAEALREADY) {
+            std::cerr << "Connection failed with error: " << errorCode << std::endl;
+            m_isConnected = false;
+            return false;
+        }
+        
+        // For non-blocking sockets, wait for connection completion
+        fd_set writeSet, errorSet;
+        FD_ZERO(&writeSet);
+        FD_ZERO(&errorSet);
+        FD_SET(m_socket, &writeSet);
+        FD_SET(m_socket, &errorSet);
+        
+        struct timeval timeout;
+        timeout.tv_sec = 10;  // Increase timeout to 10 seconds
+        timeout.tv_usec = 0;
+        
+        // Check if the socket is ready for writing or has an error
+        result = select(0, NULL, &writeSet, &errorSet, &timeout);
+        
+        if (result <= 0 || FD_ISSET(m_socket, &errorSet)) {
+            errorCode = 0;
+            int errLen = sizeof(errorCode);
+            getsockopt(m_socket, SOL_SOCKET, SO_ERROR, (char*)&errorCode, &errLen);
+            std::cerr << "Connection timed out or failed with error: " << errorCode << std::endl;
+            m_isConnected = false;
+            return false;
+        }
+
+        // Switch back to blocking mode after connection
+        mode = 0;  // 0 = blocking mode
+        ioctlsocket(m_socket, FIONBIO, &mode);
+    }
+    
+    m_isConnected = true;
     return m_isConnected;
 }
 

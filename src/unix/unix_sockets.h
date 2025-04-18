@@ -42,7 +42,7 @@ public:
     // IConnectionOrientedSocket implementation
     bool Connect(const NetworkAddress& remoteAddress) override;
     int Send(const std::vector<std::byte>& data) override;
-    int Receive(std::vector<std::byte>& buffer, int maxSize = -1) override;
+    int Receive(std::vector<std::byte>& buffer) override;
     NetworkAddress GetRemoteAddress() const override;
 
     // ITcpSocket implementation
@@ -87,7 +87,7 @@ public:
 
     // IConnectionlessSocket implementation
     int SendTo(const std::vector<std::byte>& data, const NetworkAddress& remoteAddress) override;
-    int ReceiveFrom(std::vector<std::byte>& buffer, NetworkAddress& remoteAddress, int maxSize = -1) override;
+    int ReceiveFrom(std::vector<std::byte>& buffer, NetworkAddress& remoteAddress) override;
 
     // IUdpSocket implementation
     bool SetBroadcast(bool enable) override;
