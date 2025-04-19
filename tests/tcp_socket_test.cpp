@@ -4,8 +4,12 @@
 #include <cstddef> // For std::byte
 #include "network/tcp_socket.h"
 #include "network/byte_utils.h"
+#include "utils/test_utils.h"
 
-// Mock class for TCP socket
+// Use test_utils constants but not the mock classes directly
+using namespace test_utils::constants;
+
+// Mock classes for this test file
 class MockTcpSocket final : public ITcpSocket {
 public:
     MOCK_METHOD(void, Close, (), (override));
@@ -18,7 +22,7 @@ public:
     MOCK_METHOD(NetworkAddress, GetRemoteAddress, (), (const, override));
     MOCK_METHOD(bool, SetNoDelay, (bool enable), (override));
     MOCK_METHOD(bool, WaitForDataWithTimeout, (int timeoutMs), (override));
-    MOCK_METHOD(bool, SetConnectTimeout, (int timeoutMs), (override)); // Add this line
+    MOCK_METHOD(bool, SetConnectTimeout, (int timeoutMs), (override));
 };
 
 // Mock class for TCP listener
@@ -105,7 +109,7 @@ TEST(TcpListenerTest, ListenAndAccept) {
     EXPECT_CALL(mockListener, Bind(testing::_))
         .WillOnce(testing::Return(true));
     
-    EXPECT_CALL(mockListener, Listen(5))
+    EXPECT_CALL(mockListener, Listen(SERVER_BACKLOG_SIZE))
         .WillOnce(testing::Return(true));
     
     EXPECT_CALL(mockListener, Accept())
@@ -115,7 +119,7 @@ TEST(TcpListenerTest, ListenAndAccept) {
     
     // Test the listener
     EXPECT_TRUE(mockListener.Bind(NetworkAddress("0.0.0.0", 8080)));
-    EXPECT_TRUE(mockListener.Listen(5));
+    EXPECT_TRUE(mockListener.Listen(SERVER_BACKLOG_SIZE));
     
     // Test accepting a connection
     auto clientSocket = mockListener.Accept();

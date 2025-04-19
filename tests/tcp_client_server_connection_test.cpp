@@ -11,67 +11,36 @@
 #include "network/platform_factory.h"
 #include "network/tcp_socket.h"
 #include "network/byte_utils.h"
+#include "utils/test_utils.h"
 
-// Constants for tests
-namespace {
-    // Port numbers
-    constexpr int DEFAULT_SERVER_PORT = 45000;
-    constexpr int MULTI_CONN_SERVER_PORT = 45200;
-    constexpr int NON_BLOCKING_SERVER_PORT = 45300;
-    
-    // Timeout values (in milliseconds)
-    constexpr int SERVER_DATA_WAIT_TIMEOUT_MS = 100;
-    constexpr int SERVER_START_TIMEOUT_SEC = 2;
-    constexpr int CLIENT_PROCESSING_TIME_MS = 100;
-    constexpr int CONNECTION_TIMEOUT_MS = 1000;
-    constexpr int TIMEOUT_MARGIN_MS = 500;
-    constexpr int INTER_CLIENT_DELAY_MS = 200;
-    constexpr int NON_BLOCKING_TIMEOUT_MS = 100;
-    constexpr int NON_BLOCKING_WAIT_TIME_MS = 200;
-    
-    // Other constants
-    constexpr int SERVER_BACKLOG_SIZE = 5;
-    constexpr int NUM_TEST_CLIENTS = 3;
-}
-
-// Use a static factory to ensure Winsock stays initialized for the test duration
-static std::unique_ptr<INetworkSocketFactory> g_factory = INetworkSocketFactory::CreatePlatformFactory();
+using namespace test_utils;
+using namespace test_utils::timeouts;
+using namespace test_utils::ports;
+using namespace test_utils::constants;
 
 // Helper class to run a TCP server in a separate thread
-class TestTcpServer {
+class TestTcpServer : public test_utils::TestServerBase<ITcpListener> {
 private:
-    std::unique_ptr<ITcpListener> listener;
-    std::thread serverThread;
-    std::atomic<bool> running{false};
-    std::mutex mutex;
-    std::condition_variable cv;
-    NetworkAddress serverAddress;
-    std::string receivedMessage;
-    bool messageReceived = false;
-    std::string errorMessage;
+    NetworkAddress clientAddress; // For TCP, we store client address from individual connections
 
 public:
-    // Use a higher port number that's less likely to be in use
-    TestTcpServer(int port = DEFAULT_SERVER_PORT) : serverAddress("127.0.0.1", port) {
-        listener = g_factory->CreateTcpListener();
+    TestTcpServer(int port = DEFAULT_TCP_SERVER_PORT) 
+        : TestServerBase<ITcpListener>("127.0.0.1", port) {
+        socket = g_factory->CreateTcpListener();
     }
 
-    ~TestTcpServer() {
-        stop();
-    }
-
-    bool start() {
-        if (!listener->IsValid()) {
+    bool start() override {
+        if (!socket->IsValid()) {
             errorMessage = "Failed to create valid listener";
             return false;
         }
 
-        if (!listener->Bind(serverAddress)) {
+        if (!socket->Bind(serverAddress)) {
             errorMessage = "Failed to bind to address: " + serverAddress.ipAddress + ":" + std::to_string(serverAddress.port);
             return false;
         }
 
-        if (!listener->Listen(SERVER_BACKLOG_SIZE)) {
+        if (!socket->Listen(SERVER_BACKLOG_SIZE)) {
             errorMessage = "Failed to listen on address: " + serverAddress.ipAddress + ":" + std::to_string(serverAddress.port);
             return false;
         }
@@ -84,38 +53,8 @@ public:
         return cv.wait_for(lock, std::chrono::seconds(SERVER_START_TIMEOUT_SEC), [this] { return running.load(); });
     }
 
-    void stop() {
-        running = false;
-
-        if (listener) {
-            listener->Close();
-        }
-
-        if (serverThread.joinable()) {
-            serverThread.join();
-        }
-    }
-
-    std::string getReceivedMessage() {
-        std::unique_lock<std::mutex> lock(mutex);
-        return receivedMessage;
-    }
-
-    bool wasMessageReceived() {
-        std::unique_lock<std::mutex> lock(mutex);
-        return messageReceived;
-    }
-
-    NetworkAddress getServerAddress() const {
-        return serverAddress;
-    }
-
-    std::string getErrorMessage() const {
-        return errorMessage;
-    }
-
 private:
-    void run() {
+    void run() override {
         {
             std::unique_lock<std::mutex> lock(mutex);
             cv.notify_all(); // Signal that the server has started
@@ -123,8 +62,8 @@ private:
 
         while (running) {
             // Wait for connection with timeout to allow checking running flag
-            if (listener->WaitForDataWithTimeout(SERVER_DATA_WAIT_TIMEOUT_MS)) {
-                auto clientSocket = listener->Accept();
+            if (socket->WaitForDataWithTimeout(SERVER_DATA_WAIT_TIMEOUT_MS)) {
+                auto clientSocket = socket->Accept();
                 if (clientSocket && clientSocket->IsValid()) {
                     handleClient(std::move(clientSocket));
                 }
@@ -143,6 +82,7 @@ private:
                 std::unique_lock<std::mutex> lock(mutex);
                 receivedMessage = NetworkUtils::BytesToString(buffer);
                 messageReceived = true;
+                clientAddress = clientSocket->GetRemoteAddress();
             }
 
             // Echo back the same message
@@ -181,7 +121,7 @@ protected:
 
     // Helper method to create and connect a client
     bool CreateAndConnectClient(const NetworkAddress& serverAddr) {
-        client = g_factory->CreateTcpSocket();
+        client = TestServerBase<ITcpListener>::g_factory->CreateTcpSocket();
         if (!client->Connect(serverAddr)) {
             return false;
         }
@@ -195,7 +135,7 @@ protected:
 // Test TCP client-server basic connection
 TEST_F(TcpClientServerConnectionTest, BasicConnection) {
     // Start TCP server with specific port
-    ASSERT_TRUE(CreateAndStartServer(DEFAULT_SERVER_PORT)) << "Failed to start TCP server: " << server->getErrorMessage();
+    ASSERT_TRUE(CreateAndStartServer(DEFAULT_TCP_SERVER_PORT)) << "Failed to start TCP server: " << server->getErrorMessage();
 
     // Get server address and connect client
     NetworkAddress serverAddr = server->getServerAddress();
@@ -236,7 +176,7 @@ TEST_F(TcpClientServerConnectionTest, MultipleConnections) {
 
     // Function to run a client connection test
     auto runClient = [this, &serverAddr](int clientId) -> bool {
-        auto tempClient = g_factory->CreateTcpSocket();
+        auto tempClient = TestServerBase<ITcpListener>::g_factory->CreateTcpSocket();
         if (!tempClient->Connect(serverAddr)) {
             return false;
         }
@@ -264,8 +204,14 @@ TEST_F(TcpClientServerConnectionTest, MultipleConnections) {
 
 // Test connection timeouts - doesn't need a server
 TEST_F(TcpClientServerConnectionTest, ConnectionTimeouts) {
-    // Try to connect to a server that doesn't exist
-    client = g_factory->CreateTcpSocket();
+    using namespace timeouts;
+    
+    // Create a real socket factory directly (not through TestServerBase)
+    auto factory = INetworkSocketFactory::CreatePlatformFactory();
+    
+    // Try to connect to a server that doesn't exist using the real socket
+    client = factory->CreateTcpSocket();
+    ASSERT_TRUE(client->IsValid()) << "Failed to create a valid TCP socket";
 
     // Set a short connection timeout
     ASSERT_TRUE(client->SetConnectTimeout(CONNECTION_TIMEOUT_MS));
@@ -278,9 +224,9 @@ TEST_F(TcpClientServerConnectionTest, ConnectionTimeouts) {
     EXPECT_FALSE(connectResult);
 
     // Check if the timeout occurred within a reasonable margin of the set timeout
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
-    EXPECT_GE(duration.count(), CONNECTION_TIMEOUT_MS - TIMEOUT_MARGIN_MS);
-    EXPECT_LT(duration.count(), CONNECTION_TIMEOUT_MS + TIMEOUT_MARGIN_MS);
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+    EXPECT_GE(duration, CONNECTION_TIMEOUT_MS - TIMEOUT_MARGIN_MS);
+    EXPECT_LT(duration, CONNECTION_TIMEOUT_MS + TIMEOUT_MARGIN_MS);
 }
 
 // Test non-blocking behavior with WaitForDataWithTimeout

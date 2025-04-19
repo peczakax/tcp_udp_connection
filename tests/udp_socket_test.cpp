@@ -2,10 +2,14 @@
 #include <gmock/gmock.h>
 #include "network/udp_socket.h"
 #include "network/byte_utils.h"
+#include "utils/test_utils.h"
 #include <memory>
 #include <cstddef> // For std::byte
 
-// Mock class for UDP socket
+// Use test_utils constants but not the mock classes directly
+using namespace test_utils::constants;
+
+// Mock classes for this test file
 class MockUdpSocket final : public IUdpSocket {
 public:
     MOCK_METHOD(void, Close, (), (override));

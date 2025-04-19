@@ -11,51 +11,24 @@
 #include "network/platform_factory.h"
 #include "network/udp_socket.h"
 #include "network/byte_utils.h"
+#include "utils/test_utils.h"
 
-// Constants for tests
-namespace {
-    // Port numbers
-    constexpr int DEFAULT_UDP_SERVER_PORT = 45100;
-    
-    // Timeout values (in milliseconds)
-    constexpr int UDP_SERVER_DATA_WAIT_TIMEOUT_MS = 100;
-    constexpr int UDP_SERVER_START_TIMEOUT_SEC = 2;
-    constexpr int UDP_CLIENT_PROCESSING_TIME_MS = 100;
-    constexpr int UDP_RESPONSE_TIMEOUT_MS = 500;
-    
-    // Other constants
-    constexpr int UDP_BUFFER_SIZE = 1024;
-}
-
-// Use a static factory to ensure Winsock stays initialized for the test duration
-static std::unique_ptr<INetworkSocketFactory> g_factory = INetworkSocketFactory::CreatePlatformFactory();
+using namespace test_utils;
+using namespace test_utils::timeouts;
+using namespace test_utils::ports;
+using namespace test_utils::constants;
 
 // Helper class for UDP server testing
-class TestUdpServer {
+class TestUdpServer : public test_utils::TestServerBase<IUdpSocket> {
 private:
-    std::unique_ptr<IUdpSocket> socket;
-    std::thread serverThread;
-    std::atomic<bool> running{false};
-    std::mutex mutex;
-    std::condition_variable cv;
-    NetworkAddress serverAddress;
-    std::string receivedMessage;
     NetworkAddress clientAddress;
-    bool messageReceived = false;
-    std::string errorMessage;
 
 public:
-    // Use a higher port number that's less likely to be in use
-    TestUdpServer(int port = DEFAULT_UDP_SERVER_PORT) : serverAddress("127.0.0.1", port) {
-        auto& factory = g_factory;
-        socket = factory->CreateUdpSocket();
+    TestUdpServer(int port = DEFAULT_UDP_SERVER_PORT) : TestServerBase<IUdpSocket>("127.0.0.1", port) {
+        socket = g_factory->CreateUdpSocket();
     }
 
-    ~TestUdpServer() {
-        stop();
-    }
-
-    bool start() {
+    bool start() override {
         if (!socket->IsValid()) {
             errorMessage = "Failed to create valid UDP socket";
             return false;
@@ -76,24 +49,7 @@ public:
 
         // Wait for server to start
         std::unique_lock<std::mutex> lock(mutex);
-        return cv.wait_for(lock, std::chrono::seconds(UDP_SERVER_START_TIMEOUT_SEC), [this] { return running.load(); });
-    }
-
-    void stop() {
-        running = false;
-
-        if (socket) {
-            socket->Close();
-        }
-
-        if (serverThread.joinable()) {
-            serverThread.join();
-        }
-    }
-
-    std::string getReceivedMessage() {
-        std::unique_lock<std::mutex> lock(mutex);
-        return receivedMessage;
+        return cv.wait_for(lock, std::chrono::seconds(SERVER_START_TIMEOUT_SEC), [this] { return running.load(); });
     }
 
     NetworkAddress getClientAddress() {
@@ -101,28 +57,15 @@ public:
         return clientAddress;
     }
 
-    bool wasMessageReceived() {
-        std::unique_lock<std::mutex> lock(mutex);
-        return messageReceived;
-    }
-
-    NetworkAddress getServerAddress() const {
-        return serverAddress;
-    }
-
-    std::string getErrorMessage() const {
-        return errorMessage;
-    }
-
 private:
-    void run() {
+    void run() override {
         {
             std::unique_lock<std::mutex> lock(mutex);
             cv.notify_all(); // Signal that the server has started
         }
 
         while (running) {
-            if (socket->WaitForDataWithTimeout(UDP_SERVER_DATA_WAIT_TIMEOUT_MS)) {
+            if (socket->WaitForDataWithTimeout(SERVER_DATA_WAIT_TIMEOUT_MS)) {
                 std::vector<std::byte> buffer(UDP_BUFFER_SIZE);
                 NetworkAddress sender;
                 int bytesRead = socket->ReceiveFrom(buffer, sender);
@@ -173,7 +116,7 @@ protected:
 
     // Helper method to create and bind a client
     bool CreateAndBindClient() {
-        client = g_factory->CreateUdpSocket();
+        client = TestServerBase<IUdpSocket>::g_factory->CreateUdpSocket();
         if (!client->IsValid()) {
             return false;
         }
@@ -205,7 +148,7 @@ TEST_F(UdpClientServerConnectionTest, BasicCommunication) {
     EXPECT_EQ(bytesSent, sendData.size());
 
     // Give server time to process
-    std::this_thread::sleep_for(std::chrono::milliseconds(UDP_CLIENT_PROCESSING_TIME_MS));
+    std::this_thread::sleep_for(std::chrono::milliseconds(CLIENT_PROCESSING_TIME_MS));
 
     // Verify server received the message
     EXPECT_TRUE(server->wasMessageReceived()) << "Server didn't receive any message";
@@ -215,7 +158,7 @@ TEST_F(UdpClientServerConnectionTest, BasicCommunication) {
     std::vector<std::byte> recvBuffer(UDP_BUFFER_SIZE);
     NetworkAddress senderAddr;
 
-    ASSERT_TRUE(client->WaitForDataWithTimeout(UDP_RESPONSE_TIMEOUT_MS)) << "Timed out waiting for UDP response";
+    ASSERT_TRUE(client->WaitForDataWithTimeout(LONG_TIMEOUT_MS)) << "Timed out waiting for UDP response";
     int bytesReceived = client->ReceiveFrom(recvBuffer, senderAddr);
     EXPECT_GT(bytesReceived, 0) << "Failed to receive UDP response";
 
