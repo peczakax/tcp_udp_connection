@@ -5,6 +5,18 @@
 #include <chrono>
 #include "network/tcp_socket.h"
 
+// Constants for timeout tests
+namespace {
+    // Timeout values (in milliseconds)
+    constexpr int SHORT_TIMEOUT_MS = 100;
+    constexpr int LONG_TIMEOUT_MS = 500;
+    constexpr int DATA_ARRIVAL_TIME_MS = 200;
+    constexpr int VERY_LONG_TIMEOUT_MS = 3600000; // 1 hour
+    constexpr int EXTENDED_TIMEOUT_MS = 300;
+    constexpr int ZERO_TIMEOUT_MS = 0;
+    constexpr int NEGATIVE_TIMEOUT_MS = -1;
+}
+
 // Mock class for TCP socket - just for timeout tests
 class MockTcpSocketForTimeout final : public ITcpSocket {
 public:
@@ -39,18 +51,18 @@ TEST(TcpTimeoutTest, BasicWaitForDataWithTimeout) {
     MockTcpSocketForTimeout mockSocket;
     
     // Set expectations - first no data available within timeout
-    EXPECT_CALL(mockSocket, WaitForDataWithTimeout(100))
+    EXPECT_CALL(mockSocket, WaitForDataWithTimeout(SHORT_TIMEOUT_MS))
         .WillOnce(testing::Return(false));
     
     // Then data becomes available within timeout
-    EXPECT_CALL(mockSocket, WaitForDataWithTimeout(500))
+    EXPECT_CALL(mockSocket, WaitForDataWithTimeout(LONG_TIMEOUT_MS))
         .WillOnce(testing::Return(true));
     
     // Test timeout with no data
-    EXPECT_FALSE(mockSocket.WaitForDataWithTimeout(100));
+    EXPECT_FALSE(mockSocket.WaitForDataWithTimeout(SHORT_TIMEOUT_MS));
     
     // Test timeout with data available
-    EXPECT_TRUE(mockSocket.WaitForDataWithTimeout(500));
+    EXPECT_TRUE(mockSocket.WaitForDataWithTimeout(LONG_TIMEOUT_MS));
 }
 
 // Test for Edge Cases in WaitForDataWithTimeout functionality
@@ -61,32 +73,32 @@ TEST(TcpTimeoutTest, EdgeCasesWaitForDataWithTimeout) {
     // ---- Zero timeout tests (polling behavior) ----
     {
         MockTcpSocketForTimeout mockSocket;
-        EXPECT_CALL(mockSocket, WaitForDataWithTimeout(0))
+        EXPECT_CALL(mockSocket, WaitForDataWithTimeout(ZERO_TIMEOUT_MS))
             .WillOnce(testing::Return(false));
-        EXPECT_FALSE(mockSocket.WaitForDataWithTimeout(0));
+        EXPECT_FALSE(mockSocket.WaitForDataWithTimeout(ZERO_TIMEOUT_MS));
     }
     
     {
         MockTcpSocketForTimeout mockSocket;
-        EXPECT_CALL(mockSocket, WaitForDataWithTimeout(0))
+        EXPECT_CALL(mockSocket, WaitForDataWithTimeout(ZERO_TIMEOUT_MS))
             .WillOnce(testing::Return(true));
-        EXPECT_TRUE(mockSocket.WaitForDataWithTimeout(0));
+        EXPECT_TRUE(mockSocket.WaitForDataWithTimeout(ZERO_TIMEOUT_MS));
     }
     
     // ---- Negative timeout test ----
     {
         MockTcpSocketForTimeout mockSocket;
-        EXPECT_CALL(mockSocket, WaitForDataWithTimeout(-1))
+        EXPECT_CALL(mockSocket, WaitForDataWithTimeout(NEGATIVE_TIMEOUT_MS))
             .WillOnce(testing::Return(true));
-        EXPECT_TRUE(mockSocket.WaitForDataWithTimeout(-1));
+        EXPECT_TRUE(mockSocket.WaitForDataWithTimeout(NEGATIVE_TIMEOUT_MS));
     }
     
     // ---- Large timeout test ----
     {
         MockTcpSocketForTimeout mockSocket;
-        EXPECT_CALL(mockSocket, WaitForDataWithTimeout(3600000))
+        EXPECT_CALL(mockSocket, WaitForDataWithTimeout(VERY_LONG_TIMEOUT_MS))
             .WillOnce(testing::Return(true));
-        EXPECT_TRUE(mockSocket.WaitForDataWithTimeout(3600000));
+        EXPECT_TRUE(mockSocket.WaitForDataWithTimeout(VERY_LONG_TIMEOUT_MS));
     }
     
     // ---- Invalid socket test ----
@@ -94,11 +106,11 @@ TEST(TcpTimeoutTest, EdgeCasesWaitForDataWithTimeout) {
         MockTcpSocketForTimeout mockSocket;
         EXPECT_CALL(mockSocket, IsValid())
             .WillOnce(testing::Return(false));
-        EXPECT_CALL(mockSocket, WaitForDataWithTimeout(100))
+        EXPECT_CALL(mockSocket, WaitForDataWithTimeout(SHORT_TIMEOUT_MS))
             .WillOnce(testing::Return(false));
             
         EXPECT_FALSE(mockSocket.IsValid());
-        EXPECT_FALSE(mockSocket.WaitForDataWithTimeout(100));
+        EXPECT_FALSE(mockSocket.WaitForDataWithTimeout(SHORT_TIMEOUT_MS));
     }
 }
 
@@ -108,18 +120,18 @@ TEST(TcpTimeoutTest, ListenerWaitForDataWithTimeout) {
     MockTcpListenerForTimeout mockListener;
     
     // Set expectations - first no data available within timeout
-    EXPECT_CALL(mockListener, WaitForDataWithTimeout(100))
+    EXPECT_CALL(mockListener, WaitForDataWithTimeout(SHORT_TIMEOUT_MS))
         .WillOnce(testing::Return(false));
     
     // Then data becomes available within timeout
-    EXPECT_CALL(mockListener, WaitForDataWithTimeout(500))
+    EXPECT_CALL(mockListener, WaitForDataWithTimeout(LONG_TIMEOUT_MS))
         .WillOnce(testing::Return(true));
     
     // Test timeout with no data
-    EXPECT_FALSE(mockListener.WaitForDataWithTimeout(100));
+    EXPECT_FALSE(mockListener.WaitForDataWithTimeout(SHORT_TIMEOUT_MS));
     
     // Test timeout with data available
-    EXPECT_TRUE(mockListener.WaitForDataWithTimeout(500));
+    EXPECT_TRUE(mockListener.WaitForDataWithTimeout(LONG_TIMEOUT_MS));
 }
 
 // Integration test for WaitForDataWithTimeout with real data
@@ -136,7 +148,7 @@ TEST(TcpTimeoutTest, RealDataWaitForDataWithTimeout) {
         .WillRepeatedly([](int timeoutMs) {
             // Let's simulate data appearing after 200ms delay
             auto start = std::chrono::steady_clock::now();
-            auto dataArrivalTime = start + std::chrono::milliseconds(200);
+            auto dataArrivalTime = start + std::chrono::milliseconds(DATA_ARRIVAL_TIME_MS);
             
             // Sleep until either timeout expires or data arrival time
             auto waitUntil = start + std::chrono::milliseconds(timeoutMs);
@@ -150,21 +162,21 @@ TEST(TcpTimeoutTest, RealDataWaitForDataWithTimeout) {
     
     // Test case 1: Wait time less than data arrival time - should fail
     auto startTime = std::chrono::steady_clock::now();
-    bool result1 = mockSocket->WaitForDataWithTimeout(100);
+    bool result1 = mockSocket->WaitForDataWithTimeout(SHORT_TIMEOUT_MS);
     auto endTime = std::chrono::steady_clock::now();
     auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
     
     EXPECT_FALSE(result1);
-    EXPECT_GE(elapsedMs, 100);  // Should have waited at least the timeout
-    EXPECT_LT(elapsedMs, 200);  // But shouldn't wait the full data arrival time
+    EXPECT_GE(elapsedMs, SHORT_TIMEOUT_MS);  // Should have waited at least the timeout
+    EXPECT_LT(elapsedMs, DATA_ARRIVAL_TIME_MS);  // But shouldn't wait the full data arrival time
     
     // Test case 2: Wait time greater than data arrival time - should succeed
     startTime = std::chrono::steady_clock::now();
-    bool result2 = mockSocket->WaitForDataWithTimeout(300);
+    bool result2 = mockSocket->WaitForDataWithTimeout(EXTENDED_TIMEOUT_MS);
     endTime = std::chrono::steady_clock::now();
     elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
     
     EXPECT_TRUE(result2);
-    EXPECT_GE(elapsedMs, 200);  // Should have waited until data arrived
-    EXPECT_LT(elapsedMs, 300);  // But not the full timeout
+    EXPECT_GE(elapsedMs, DATA_ARRIVAL_TIME_MS);  // Should have waited until data arrived
+    EXPECT_LT(elapsedMs, EXTENDED_TIMEOUT_MS);  // But not the full timeout
 }

@@ -12,6 +12,28 @@
 #include "network/tcp_socket.h"
 #include "network/byte_utils.h"
 
+// Constants for tests
+namespace {
+    // Port numbers
+    constexpr int DEFAULT_SERVER_PORT = 45000;
+    constexpr int MULTI_CONN_SERVER_PORT = 45200;
+    constexpr int NON_BLOCKING_SERVER_PORT = 45300;
+    
+    // Timeout values (in milliseconds)
+    constexpr int SERVER_DATA_WAIT_TIMEOUT_MS = 100;
+    constexpr int SERVER_START_TIMEOUT_SEC = 2;
+    constexpr int CLIENT_PROCESSING_TIME_MS = 100;
+    constexpr int CONNECTION_TIMEOUT_MS = 1000;
+    constexpr int TIMEOUT_MARGIN_MS = 500;
+    constexpr int INTER_CLIENT_DELAY_MS = 200;
+    constexpr int NON_BLOCKING_TIMEOUT_MS = 100;
+    constexpr int NON_BLOCKING_WAIT_TIME_MS = 200;
+    
+    // Other constants
+    constexpr int SERVER_BACKLOG_SIZE = 5;
+    constexpr int NUM_TEST_CLIENTS = 3;
+}
+
 // Use a static factory to ensure Winsock stays initialized for the test duration
 static std::unique_ptr<INetworkSocketFactory> g_factory = INetworkSocketFactory::CreatePlatformFactory();
 
@@ -30,7 +52,7 @@ private:
 
 public:
     // Use a higher port number that's less likely to be in use
-    TestTcpServer(int port = 45000) : serverAddress("127.0.0.1", port) {
+    TestTcpServer(int port = DEFAULT_SERVER_PORT) : serverAddress("127.0.0.1", port) {
         listener = g_factory->CreateTcpListener();
     }
 
@@ -49,7 +71,7 @@ public:
             return false;
         }
 
-        if (!listener->Listen(5)) {
+        if (!listener->Listen(SERVER_BACKLOG_SIZE)) {
             errorMessage = "Failed to listen on address: " + serverAddress.ipAddress + ":" + std::to_string(serverAddress.port);
             return false;
         }
@@ -59,7 +81,7 @@ public:
 
         // Wait for server to start
         std::unique_lock<std::mutex> lock(mutex);
-        return cv.wait_for(lock, std::chrono::seconds(2), [this] { return running.load(); });
+        return cv.wait_for(lock, std::chrono::seconds(SERVER_START_TIMEOUT_SEC), [this] { return running.load(); });
     }
 
     void stop() {
@@ -101,7 +123,7 @@ private:
 
         while (running) {
             // Wait for connection with timeout to allow checking running flag
-            if (listener->WaitForDataWithTimeout(100)) {
+            if (listener->WaitForDataWithTimeout(SERVER_DATA_WAIT_TIMEOUT_MS)) {
                 auto clientSocket = listener->Accept();
                 if (clientSocket && clientSocket->IsValid()) {
                     handleClient(std::move(clientSocket));
@@ -173,7 +195,7 @@ protected:
 // Test TCP client-server basic connection
 TEST_F(TcpClientServerConnectionTest, BasicConnection) {
     // Start TCP server with specific port
-    ASSERT_TRUE(CreateAndStartServer(45000)) << "Failed to start TCP server: " << server->getErrorMessage();
+    ASSERT_TRUE(CreateAndStartServer(DEFAULT_SERVER_PORT)) << "Failed to start TCP server: " << server->getErrorMessage();
 
     // Get server address and connect client
     NetworkAddress serverAddr = server->getServerAddress();
@@ -187,7 +209,7 @@ TEST_F(TcpClientServerConnectionTest, BasicConnection) {
     EXPECT_EQ(bytesSent, sendData.size());
 
     // Give server time to process
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds(CLIENT_PROCESSING_TIME_MS));
 
     // Verify server received the message
     EXPECT_TRUE(server->wasMessageReceived()) << "Server didn't receive any message";
@@ -207,11 +229,10 @@ TEST_F(TcpClientServerConnectionTest, BasicConnection) {
 // Test multiple connections to TCP server
 TEST_F(TcpClientServerConnectionTest, MultipleConnections) {
     // Start TCP server with specific port
-    ASSERT_TRUE(CreateAndStartServer(45200)) << "Failed to start TCP server: " << server->getErrorMessage();
+    ASSERT_TRUE(CreateAndStartServer(MULTI_CONN_SERVER_PORT)) << "Failed to start TCP server: " << server->getErrorMessage();
 
     // Get server address
     NetworkAddress serverAddr = server->getServerAddress();
-    const int numClients = 3;
 
     // Function to run a client connection test
     auto runClient = [this, &serverAddr](int clientId) -> bool {
@@ -224,7 +245,7 @@ TEST_F(TcpClientServerConnectionTest, MultipleConnections) {
         std::vector<std::byte> sendData = NetworkUtils::StringToBytes(testMessage);
         int bytesSent = tempClient->Send(sendData);
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(CLIENT_PROCESSING_TIME_MS));
 
         std::vector<std::byte> recvBuffer;
         int bytesReceived = tempClient->Receive(recvBuffer);
@@ -234,10 +255,10 @@ TEST_F(TcpClientServerConnectionTest, MultipleConnections) {
     };
 
     // Run multiple clients in sequence
-    for (int i = 0; i < numClients; i++) {
+    for (int i = 0; i < NUM_TEST_CLIENTS; i++) {
         EXPECT_TRUE(runClient(i)) << "Client " << i << " failed to connect or receive data";
         // Give server time to reset between connections
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        std::this_thread::sleep_for(std::chrono::milliseconds(INTER_CLIENT_DELAY_MS));
     }
 }
 
@@ -246,9 +267,8 @@ TEST_F(TcpClientServerConnectionTest, ConnectionTimeouts) {
     // Try to connect to a server that doesn't exist
     client = g_factory->CreateTcpSocket();
 
-    // Set a short connection timeout (e.g., 1 second)
-    const int connectTimeoutMs = 1000;
-    ASSERT_TRUE(client->SetConnectTimeout(connectTimeoutMs));
+    // Set a short connection timeout
+    ASSERT_TRUE(client->SetConnectTimeout(CONNECTION_TIMEOUT_MS));
 
     auto startTime = std::chrono::steady_clock::now();
     bool connectResult = client->Connect(NetworkAddress("192.168.123.254", 8099)); // Use an unlikely-to-exist address
@@ -259,15 +279,14 @@ TEST_F(TcpClientServerConnectionTest, ConnectionTimeouts) {
 
     // Check if the timeout occurred within a reasonable margin of the set timeout
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
-    // Allow some buffer around the timeout value (e.g., +/- 500ms)
-    EXPECT_GE(duration.count(), connectTimeoutMs - 500);
-    EXPECT_LT(duration.count(), connectTimeoutMs + 500);
+    EXPECT_GE(duration.count(), CONNECTION_TIMEOUT_MS - TIMEOUT_MARGIN_MS);
+    EXPECT_LT(duration.count(), CONNECTION_TIMEOUT_MS + TIMEOUT_MARGIN_MS);
 }
 
 // Test non-blocking behavior with WaitForDataWithTimeout
 TEST_F(TcpClientServerConnectionTest, NonBlockingOperation) {
     // Start TCP server with specific port
-    ASSERT_TRUE(CreateAndStartServer(45300)) << "Failed to start TCP server: " << server->getErrorMessage();
+    ASSERT_TRUE(CreateAndStartServer(NON_BLOCKING_SERVER_PORT)) << "Failed to start TCP server: " << server->getErrorMessage();
 
     // Get server address and connect client
     NetworkAddress serverAddr = server->getServerAddress();
@@ -275,7 +294,7 @@ TEST_F(TcpClientServerConnectionTest, NonBlockingOperation) {
         << serverAddr.ipAddress << ":" << serverAddr.port;
 
     // There should be no data available to read initially
-    EXPECT_FALSE(client->WaitForDataWithTimeout(100));
+    EXPECT_FALSE(client->WaitForDataWithTimeout(NON_BLOCKING_TIMEOUT_MS));
 
     // Send data from client to server
     std::string testMessage = "Hello, Server!";
@@ -283,10 +302,10 @@ TEST_F(TcpClientServerConnectionTest, NonBlockingOperation) {
     client->Send(sendData);
 
     // Wait for server to process and respond
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    std::this_thread::sleep_for(std::chrono::milliseconds(NON_BLOCKING_WAIT_TIME_MS));
 
     // Now there should be data available
-    EXPECT_TRUE(client->WaitForDataWithTimeout(100)) << "No data available after waiting";
+    EXPECT_TRUE(client->WaitForDataWithTimeout(NON_BLOCKING_TIMEOUT_MS)) << "No data available after waiting";
 
     // Receive the response
     std::vector<std::byte> recvBuffer;
