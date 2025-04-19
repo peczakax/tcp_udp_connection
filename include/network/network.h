@@ -27,6 +27,9 @@ public:
     virtual NetworkAddress GetLocalAddress() const = 0;
     virtual bool IsValid() const = 0;
     virtual bool WaitForDataWithTimeout(int timeoutMs) = 0;
+    
+    // Socket options
+    virtual void SetReuseAddr(bool enable) = 0; // Enables/disables SO_REUSEADDR socket option
 };
 
 // Interface for connection-oriented sockets (like TCP)

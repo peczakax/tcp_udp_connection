@@ -98,8 +98,8 @@ bool WindowsTcpSocket::Bind(const NetworkAddress& localAddress) {
         return false;
     }
 
-    // Enable SO_REUSEADDR
-    BOOL reuseAddr = TRUE;
+    // Apply SO_REUSEADDR option if enabled
+    BOOL reuseAddr = m_reuseAddr ? TRUE : FALSE;
     if (setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char*>(&reuseAddr), sizeof(reuseAddr)) != 0) {
         int error = WSAGetLastError();
         std::cerr << "setsockopt(SO_REUSEADDR) failed with error: " << error << std::endl;
@@ -274,6 +274,11 @@ bool WindowsTcpSocket::SetNoDelay(bool enable) {
                       reinterpret_cast<char*>(&value), sizeof(value)) == 0);
 }
 
+void WindowsTcpSocket::SetReuseAddr(bool enable) {
+    // Store the setting in member variable
+    m_reuseAddr = enable;
+}
+
 bool WindowsTcpSocket::WaitForDataWithTimeout(int timeoutMs) {
     if (!m_isConnected)
         return false;
@@ -314,12 +319,14 @@ bool WindowsTcpListener::Bind(const NetworkAddress& localAddress) {
         return false;
     }
 
-    // Enable SO_REUSEADDR
-    BOOL reuseAddr = TRUE;
-    if (setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char*>(&reuseAddr), sizeof(reuseAddr)) != 0) {
-        int error = WSAGetLastError();
-        std::cerr << "setsockopt(SO_REUSEADDR) for listener failed with error: " << error << std::endl;
-        // Continue anyway, but log the error
+    // Apply SO_REUSEADDR option if enabled
+    if (m_reuseAddr) {
+        BOOL reuseAddr = TRUE;
+        if (setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char*>(&reuseAddr), sizeof(reuseAddr)) != 0) {
+            int error = WSAGetLastError();
+            std::cerr << "setsockopt(SO_REUSEADDR) for listener failed with error: " << error << std::endl;
+            // Continue anyway, but log the error
+        }
     }
 
     sockaddr_in addr = CreateSockAddr(localAddress);
@@ -367,6 +374,11 @@ std::unique_ptr<IConnectionOrientedSocket> WindowsTcpListener::Accept() {
     return std::make_unique<WindowsTcpSocket>(clientSocket);
 }
 
+void WindowsTcpListener::SetReuseAddr(bool enable) {
+    // Store the setting in member variable
+    m_reuseAddr = enable;
+}
+
 bool WindowsTcpListener::WaitForDataWithTimeout(int timeoutMs) {
     return WindowsSocketHelpers::WaitForDataWithTimeout(m_socket, timeoutMs);
 }
@@ -404,12 +416,14 @@ bool WindowsUdpSocket::Bind(const NetworkAddress& localAddress) {
         return false;
     }
 
-    // Enable SO_REUSEADDR for UDP sockets as well
-    BOOL reuseAddr = TRUE;
-    if (setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char*>(&reuseAddr), sizeof(reuseAddr)) != 0) {
-        int error = WSAGetLastError();
-        std::cerr << "setsockopt(SO_REUSEADDR) for UDP failed with error: " << error << std::endl;
-        // Continue anyway, but log the error
+    // Apply SO_REUSEADDR option if enabled
+    if (m_reuseAddr) {
+        BOOL reuseAddr = TRUE;
+        if (setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char*>(&reuseAddr), sizeof(reuseAddr)) != 0) {
+            int error = WSAGetLastError();
+            std::cerr << "setsockopt(SO_REUSEADDR) for UDP failed with error: " << error << std::endl;
+            // Continue anyway, but log the error
+        }
     }
 
     sockaddr_in addr = CreateSockAddr(localAddress);
@@ -474,6 +488,11 @@ bool WindowsUdpSocket::SetBroadcast(bool enable) {
     BOOL value = enable ? TRUE : FALSE;
     return (setsockopt(m_socket, SOL_SOCKET, SO_BROADCAST, 
                      reinterpret_cast<char*>(&value), sizeof(value)) == 0);
+}
+
+void WindowsUdpSocket::SetReuseAddr(bool enable) {
+    // Store the setting in member variable
+    m_reuseAddr = enable;
 }
 
 bool WindowsUdpSocket::JoinMulticastGroup(const NetworkAddress& groupAddress) {

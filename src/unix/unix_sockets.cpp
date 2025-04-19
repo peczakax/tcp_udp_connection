@@ -64,12 +64,12 @@ namespace UnixSocketHelpers {
 
 // UnixTcpSocket Implementation
 UnixTcpSocket::UnixTcpSocket() 
-    : m_socketFd(-1), m_isConnected(false), m_connectTimeoutMs(-1) {
+    : m_socketFd(-1), m_isConnected(false), m_connectTimeoutMs(-1), m_reuseAddr(false) {
     m_socketFd = socket(AF_INET, SOCK_STREAM, 0);
 }
 
 UnixTcpSocket::UnixTcpSocket(int socketFd) 
-    : m_socketFd(socketFd), m_isConnected(true), m_connectTimeoutMs(-1) {
+    : m_socketFd(socketFd), m_isConnected(true), m_connectTimeoutMs(-1), m_reuseAddr(false) {
 }
 
 UnixTcpSocket::~UnixTcpSocket() {
@@ -87,6 +87,12 @@ void UnixTcpSocket::Close() {
 bool UnixTcpSocket::Bind(const NetworkAddress& localAddress) {
     if (m_socketFd == -1)
         return false;
+
+    // Apply SO_REUSEADDR option if enabled
+    int value = m_reuseAddr;
+    if (setsockopt(m_socketFd, SOL_SOCKET, SO_REUSEADDR, &value, sizeof(value)) != 0) {
+        // Continue anyway, but could log error here if needed
+    }
 
     sockaddr_in addr = CreateSockAddr(localAddress);
     return (bind(m_socketFd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == 0);
@@ -223,6 +229,11 @@ bool UnixTcpSocket::SetNoDelay(bool enable) {
                      &value, sizeof(value)) == 0);
 }
 
+void UnixTcpSocket::SetReuseAddr(bool enable) {
+    // Store the setting in member variable
+    m_reuseAddr = enable;
+}
+
 bool UnixTcpSocket::WaitForDataWithTimeout(int timeoutMs) {
     if (!m_isConnected)
         return false;
@@ -232,14 +243,11 @@ bool UnixTcpSocket::WaitForDataWithTimeout(int timeoutMs) {
 
 // UnixTcpListener Implementation
 UnixTcpListener::UnixTcpListener() 
-    : m_socketFd(-1) {
+    : m_socketFd(-1), m_reuseAddr(false) {
     m_socketFd = socket(AF_INET, SOCK_STREAM, 0);
     
-    // Set socket to reuse address to prevent "address already in use" errors
-    if (m_socketFd != -1) {
-        int enable = 1;
-        setsockopt(m_socketFd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int));
-    }
+    // No longer automatically enable SO_REUSEADDR
+    // Let client code explicitly call SetReuseAddr if needed
 }
 
 UnixTcpListener::~UnixTcpListener() {
@@ -256,6 +264,14 @@ void UnixTcpListener::Close() {
 bool UnixTcpListener::Bind(const NetworkAddress& localAddress) {
     if (m_socketFd == -1)
         return false;
+
+    // Apply SO_REUSEADDR option if enabled
+    if (m_reuseAddr) {
+        int value = 1;
+        if (setsockopt(m_socketFd, SOL_SOCKET, SO_REUSEADDR, &value, sizeof(value)) != 0) {
+            // Continue anyway, but could log error here if needed
+        }
+    }
 
     sockaddr_in addr = CreateSockAddr(localAddress);
     return (bind(m_socketFd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == 0);
@@ -294,13 +310,18 @@ std::unique_ptr<IConnectionOrientedSocket> UnixTcpListener::Accept() {
     return std::make_unique<UnixTcpSocket>(clientSocket);
 }
 
+void UnixTcpListener::SetReuseAddr(bool enable) {
+    // Store the setting in member variable
+    m_reuseAddr = enable;
+}
+
 bool UnixTcpListener::WaitForDataWithTimeout(int timeoutMs) {
     return UnixSocketHelpers::WaitForDataWithTimeout(m_socketFd, timeoutMs);
 }
 
 // UnixUdpSocket Implementation
 UnixUdpSocket::UnixUdpSocket() 
-    : m_socketFd(-1) {
+    : m_socketFd(-1), m_reuseAddr(false) {
     m_socketFd = socket(AF_INET, SOCK_DGRAM, 0);
 }
 
@@ -318,6 +339,14 @@ void UnixUdpSocket::Close() {
 bool UnixUdpSocket::Bind(const NetworkAddress& localAddress) {
     if (m_socketFd == -1)
         return false;
+
+    // Apply SO_REUSEADDR option if enabled
+    if (m_reuseAddr) {
+        int value = 1;
+        if (setsockopt(m_socketFd, SOL_SOCKET, SO_REUSEADDR, &value, sizeof(value)) != 0) {
+            // Continue anyway, but could log error here if needed
+        }
+    }
 
     sockaddr_in addr = CreateSockAddr(localAddress);
     return (bind(m_socketFd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == 0);
@@ -372,6 +401,11 @@ bool UnixUdpSocket::SetBroadcast(bool enable) {
     int value = enable ? 1 : 0;
     return (setsockopt(m_socketFd, SOL_SOCKET, SO_BROADCAST, 
                      &value, sizeof(value)) == 0);
+}
+
+void UnixUdpSocket::SetReuseAddr(bool enable) {
+    // Store the setting in member variable
+    m_reuseAddr = enable;
 }
 
 bool UnixUdpSocket::JoinMulticastGroup(const NetworkAddress& groupAddress) {

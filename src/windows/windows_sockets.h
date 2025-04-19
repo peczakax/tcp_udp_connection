@@ -34,6 +34,7 @@ public:
     bool Bind(const NetworkAddress& localAddress) override;
     NetworkAddress GetLocalAddress() const override;
     bool IsValid() const override;
+    void SetReuseAddr(bool enable) override;
 
     // IConnectionOrientedSocket implementation
     bool Connect(const NetworkAddress& remoteAddress) override;
@@ -50,6 +51,7 @@ private:
     SOCKET m_socket;
     bool m_isConnected;
     int m_connectTimeoutMs = -1;
+    bool m_reuseAddr = false;
 };
 
 // Windows implementation of TCP listener
@@ -63,12 +65,14 @@ public:
     bool Bind(const NetworkAddress& localAddress) override;
     NetworkAddress GetLocalAddress() const override;
     bool IsValid() const override;
+    void SetReuseAddr(bool enable) override;
     bool WaitForDataWithTimeout(int timeoutMs) override;
     bool Listen(int backlog) override;
     std::unique_ptr<IConnectionOrientedSocket> Accept() override;
 
 private:
     SOCKET m_socket;
+    bool m_reuseAddr = false;
 };
 
 // Windows implementation of UDP socket
@@ -82,6 +86,7 @@ public:
     bool Bind(const NetworkAddress& localAddress) override;
     NetworkAddress GetLocalAddress() const override;
     bool IsValid() const override;
+    void SetReuseAddr(bool enable) override;
 
     // IConnectionlessSocket implementation
     int SendTo(const std::vector<std::byte>& data, const NetworkAddress& remoteAddress) override;
@@ -95,6 +100,7 @@ public:
 
 private:
     SOCKET m_socket;
+    bool m_reuseAddr = false;
 };
 
 // Windows implementation of the network socket factory

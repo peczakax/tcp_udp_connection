@@ -16,6 +16,7 @@ public:
     MOCK_METHOD(bool, Bind, (const NetworkAddress& localAddress), (override));
     MOCK_METHOD(NetworkAddress, GetLocalAddress, (), (const, override));
     MOCK_METHOD(bool, IsValid, (), (const, override));
+    MOCK_METHOD(void, SetReuseAddr, (bool enable), (override));
     MOCK_METHOD(bool, Connect, (const NetworkAddress& remoteAddress), (override));
     MOCK_METHOD(int, Send, (const std::vector<std::byte>& data), (override));
     MOCK_METHOD(int, Receive, (std::vector<std::byte>& buffer), (override));
@@ -32,6 +33,7 @@ public:
     MOCK_METHOD(bool, Bind, (const NetworkAddress& localAddress), (override));
     MOCK_METHOD(NetworkAddress, GetLocalAddress, (), (const, override));
     MOCK_METHOD(bool, IsValid, (), (const, override));
+    MOCK_METHOD(void, SetReuseAddr, (bool enable), (override));
     MOCK_METHOD(bool, Listen, (int backlog), (override));
     MOCK_METHOD(std::unique_ptr<IConnectionOrientedSocket>, Accept, (), (override));
     MOCK_METHOD(bool, WaitForDataWithTimeout, (int timeoutMs), (override));
