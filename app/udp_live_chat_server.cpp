@@ -1,17 +1,18 @@
-#include <iostream>
-#include <string>
-#include <vector>
-#include <map>
-#include <unordered_map>
-#include <thread>
-#include <mutex>
-#include <memory>
-#include <sstream>
-#include <ctime>
-#include <atomic>
-#include <condition_variable>
 #include <algorithm>
+#include <atomic>
 #include <chrono>
+#include <condition_variable>
+#include <cstring>
+#include <ctime>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <sstream>
+#include <string>
+#include <thread>
+#include <unordered_map>
+#include <vector>
 
 // Platform-specific headers
 #ifdef _WIN32
@@ -73,9 +74,22 @@ private:
     std::string getTimestamp() {
         auto now = std::chrono::system_clock::now();
         std::time_t time = std::chrono::system_clock::to_time_t(now);
-        std::string timestamp = std::ctime(&time);
+        
+        // Use safer ctime_s instead of ctime
+        char timeBuffer[26];
+#ifdef _WIN32
+        ctime_s(timeBuffer, sizeof(timeBuffer), &time);
+#else
+        // For non-Windows platforms that don't have ctime_s
+        std::strncpy(timeBuffer, std::ctime(&time), sizeof(timeBuffer));
+        timeBuffer[sizeof(timeBuffer) - 1] = '\0'; // Ensure null termination
+#endif
+        std::string timestamp(timeBuffer);
+        
         // Remove newline from timestamp
-        timestamp.pop_back();
+        if (!timestamp.empty() && timestamp.back() == '\n') {
+            timestamp.pop_back();
+        }
         return "[" + timestamp + "] ";
     }
     
@@ -479,7 +493,7 @@ public:
         if (receiveThread.joinable()) {
             receiveThread.detach();
         }
-        
+
         if (inactivityThread.joinable()) {
             inactivityThread.detach();
         }
