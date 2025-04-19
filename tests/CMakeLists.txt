@@ -15,6 +15,7 @@ add_executable(
   tcp_timeout_test.cpp
   udp_socket_test.cpp
   udp_timeout_test.cpp
+  udp_broadcast_test.cpp
   tcp_client_server_connection_test.cpp
   udp_client_server_connection_test.cpp
 )

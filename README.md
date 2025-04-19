@@ -9,6 +9,7 @@ A cross-platform C++ networking library that provides abstractions for TCP and U
 - Factory pattern to create appropriate socket implementations
 - Simple API for network communications
 - Comprehensive test suite using Google Test framework
+- Integration tests for UDP broadcast functionality
 - Specialized timeout functionality for non-blocking operations
 - Live chat application examples using TCP and UDP sockets
 
@@ -150,6 +151,8 @@ tcp_udp_connection/
 │   │   └── TCP socket functionality tests
 │   ├── tcp_timeout_test.cpp       
 │   │   └── TCP timeout functionality tests
+│   ├── udp_broadcast_test.cpp     
+│   │   └── UDP broadcast integration tests
 │   ├── udp_client_server_connection_test.cpp 
 │   │   └── UDP client/server connection tests
 │   ├── udp_socket_test.cpp        
@@ -186,6 +189,38 @@ The library is designed to work seamlessly across different platforms:
 - **Unix/Linux/macOS**: Uses POSIX sockets API
 
 The platform-specific implementations are automatically selected at compile time.
+
+## Tests
+
+The library includes a comprehensive test suite built with Google Test that covers both unit tests and integration tests:
+
+### Unit Tests
+
+Unit tests verify the correctness of individual components using mock objects:
+- TCP socket functionality (`tcp_socket_test.cpp`)
+- UDP socket functionality (`udp_socket_test.cpp`)
+- TCP timeout functionality (`tcp_timeout_test.cpp`) 
+- UDP timeout functionality (`udp_timeout_test.cpp`)
+
+### Integration Tests
+
+Integration tests verify the interaction between components using actual network communication:
+- TCP client-server communication (`tcp_client_server_connection_test.cpp`)
+- UDP client-server communication (`udp_client_server_connection_test.cpp`)
+- UDP broadcast functionality (`udp_broadcast_test.cpp`) - tests broadcasting to multiple receivers
+
+You can run specific test categories using the gtest filter:
+
+```bash
+# Run all tests
+./tests/network_tests
+
+# Run only UDP broadcast tests
+./tests/network_tests --gtest_filter="UdpBroadcastTest.*"
+
+# Run only TCP client-server tests
+./tests/network_tests --gtest_filter="TcpClientServerConnectionTest.*"
+```
 
 ## Interface Design
 
@@ -437,6 +472,38 @@ try {
     std::cerr << "Caught exception: " << e.what() << std::endl;
 }
 ```
+
+## UDP Broadcast Support
+
+The library provides robust UDP broadcast support with the following features:
+
+```cpp
+// UDP Broadcast example
+auto factory = INetworkSocketFactory::CreatePlatformFactory();
+auto socket = factory->CreateUdpSocket();
+
+// Enable broadcasting on the socket
+if (socket->SetBroadcast(true)) {
+    // Send a broadcast message to all devices on the network
+    std::string message = "Hello, network!";
+    std::vector<std::byte> data = NetworkUtils::StringToBytes(message);
+    
+    NetworkAddress broadcastAddr("255.255.255.255", 8084);
+    int bytesSent = socket->SendTo(data, broadcastAddr);
+    
+    if (bytesSent > 0) {
+        std::cout << "Broadcast message sent successfully" << std::endl;
+    }
+}
+```
+
+The library includes comprehensive integration tests for the broadcast functionality in `udp_broadcast_test.cpp`, which verify:
+
+- Basic broadcast functionality
+- Multiple sequential broadcasts
+- Large message broadcasting
+- Broadcasting from a bound socket
+- Rapid broadcast stress testing
 
 ## Class Hierarchy
 

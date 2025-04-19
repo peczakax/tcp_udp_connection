@@ -56,7 +56,7 @@ namespace ports {
 namespace constants {
     constexpr int SERVER_BACKLOG_SIZE = 5;
     constexpr int NUM_TEST_CLIENTS = 3;
-    constexpr int UDP_BUFFER_SIZE = 1024;
+    constexpr int UDP_BUFFER_SIZE = 2048;
 }
 
 // Utility to implement timeout waiting tests
