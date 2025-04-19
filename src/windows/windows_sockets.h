@@ -40,6 +40,7 @@ public:
     int Send(const std::vector<std::byte>& data) override;
     int Receive(std::vector<std::byte>& buffer) override;
     NetworkAddress GetRemoteAddress() const override;
+    bool SetConnectTimeout(int timeoutMs) override; 
 
     // ITcpSocket implementation
     bool SetNoDelay(bool enable) override;
@@ -48,6 +49,7 @@ public:
 private:
     SOCKET m_socket;
     bool m_isConnected;
+    int m_connectTimeoutMs = -1;
 };
 
 // Windows implementation of TCP listener

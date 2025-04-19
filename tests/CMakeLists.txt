@@ -22,8 +22,8 @@ add_executable(
 target_link_libraries(
   network_tests
   PRIVATE
-  gtest_main
-  gmock
+  GTest::gtest_main
+  GTest::gmock_main
   network
 )
 

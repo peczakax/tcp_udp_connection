@@ -5,9 +5,6 @@
 
 // TCP client socket interface
 class ITcpSocket : public IConnectionOrientedSocket {
-    // All functionality inherited from IConnectionOrientedSocket
-    // This is a type-specific interface that doesn't add new methods
-    // but could be extended with TCP-specific options
 public:
     // Example of a TCP-specific option
     virtual bool SetNoDelay(bool enable) = 0;
@@ -15,7 +12,6 @@ public:
 
 // TCP server socket interface
 class ITcpListener : public IConnectionListener {
-    // All functionality inherited from IConnectionListener
 public:
     // Match the base class's return type
     virtual std::unique_ptr<IConnectionOrientedSocket> Accept() override = 0;

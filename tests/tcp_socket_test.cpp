@@ -18,6 +18,7 @@ public:
     MOCK_METHOD(NetworkAddress, GetRemoteAddress, (), (const, override));
     MOCK_METHOD(bool, SetNoDelay, (bool enable), (override));
     MOCK_METHOD(bool, WaitForDataWithTimeout, (int timeoutMs), (override));
+    MOCK_METHOD(bool, SetConnectTimeout, (int timeoutMs), (override)); // Add this line
 };
 
 // Mock class for TCP listener

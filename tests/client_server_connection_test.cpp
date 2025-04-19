@@ -399,8 +399,9 @@ TEST(ClientServerConnectionTest, ConnectionTimeouts) {
     auto factory = INetworkSocketFactory::CreatePlatformFactory();
     auto client = factory->CreateTcpSocket();
     
-    // Set a shorter timeout for the test (if supported by your platform)
-    // This might not work directly with your interface, but including as a note
+    // Set a short connection timeout (e.g., 1 second)
+    const int connectTimeoutMs = 1000;
+    ASSERT_TRUE(client->SetConnectTimeout(connectTimeoutMs));
     
     auto startTime = std::chrono::steady_clock::now();
     bool connectResult = client->Connect(NetworkAddress("192.168.123.254", 8099)); // Use an unlikely-to-exist address
@@ -409,9 +410,11 @@ TEST(ClientServerConnectionTest, ConnectionTimeouts) {
     // Connection should fail
     EXPECT_FALSE(connectResult);
     
-    // Connection should have timed out in reasonable time (checking for excessive delays)
-    auto duration = std::chrono::duration_cast<std::chrono::seconds>(endTime - startTime);
-    EXPECT_LT(duration.count(), 15); // Should time out in less than 15 seconds
+    // Check if the timeout occurred within a reasonable margin of the set timeout
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
+    // Allow some buffer around the timeout value (e.g., +/- 500ms)
+    EXPECT_GE(duration.count(), connectTimeoutMs - 500);
+    EXPECT_LT(duration.count(), connectTimeoutMs + 500); 
     
     client->Close();
 }

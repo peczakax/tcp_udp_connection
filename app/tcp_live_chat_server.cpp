@@ -1,16 +1,18 @@
-#include <iostream>
-#include <string>
-#include <vector>
-#include <map>
-#include <unordered_map>  // Add missing include
-#include <thread>
-#include <mutex>
-#include <memory>
-#include <sstream>
-#include <ctime>
-#include <atomic>
 #include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <condition_variable>
+#include <cstring>
+#include <ctime>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <sstream>
+#include <string>
+#include <thread>
+#include <unordered_map>
+#include <vector>
 
 // Platform-specific headers
 #ifdef _WIN32
@@ -81,11 +83,25 @@ private:
     // Helper function to get current timestamp as string
     std::string getTimestamp() {
         auto now = std::chrono::system_clock::now();
-        std::time_t time = std::chrono::system_clock::to_time_t(now);
-        std::string timestamp = std::ctime(&time);
+        std::time_t time_t_now = std::chrono::system_clock::to_time_t(now);
+        
+        // Use ctime_s instead of ctime for safer string handling on Windows
+        char timestamp[26];
+#ifdef _WIN32
+        ctime_s(timestamp, sizeof(timestamp), &time_t_now);
+#else
+        // Standard ctime on non-Windows platforms (less safe but more portable)
+        std::string temp = std::ctime(&time_t_now);
+        std::strncpy(timestamp, temp.c_str(), sizeof(timestamp) - 1);
+        timestamp[sizeof(timestamp) - 1] = '\0';
+#endif
+        
         // Remove newline from timestamp
-        timestamp.pop_back();
-        return "[" + timestamp + "] ";
+        size_t len = std::strlen(timestamp);
+        if (len > 0 && (timestamp[len-1] == '\n' || timestamp[len-1] == '\r'))
+            timestamp[len-1] = '\0';
+            
+        return "[" + std::string(timestamp) + "] ";
     }
     
     // Helper function to broadcast message to all clients

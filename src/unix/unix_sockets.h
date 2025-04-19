@@ -44,6 +44,7 @@ public:
     int Send(const std::vector<std::byte>& data) override;
     int Receive(std::vector<std::byte>& buffer) override;
     NetworkAddress GetRemoteAddress() const override;
+    bool SetConnectTimeout(int timeoutMs) override;
 
     // ITcpSocket implementation
     bool SetNoDelay(bool enable) override;
@@ -52,6 +53,7 @@ public:
 private:
     int m_socketFd;
     bool m_isConnected;
+    int m_connectTimeoutMs = -1;
 };
 
 // Unix implementation of TCP listener

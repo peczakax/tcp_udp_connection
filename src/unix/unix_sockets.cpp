@@ -64,12 +64,12 @@ namespace UnixSocketHelpers {
 
 // UnixTcpSocket Implementation
 UnixTcpSocket::UnixTcpSocket() 
-    : m_socketFd(-1), m_isConnected(false) {
+    : m_socketFd(-1), m_isConnected(false), m_connectTimeoutMs(-1) {
     m_socketFd = socket(AF_INET, SOCK_STREAM, 0);
 }
 
 UnixTcpSocket::UnixTcpSocket(int socketFd) 
-    : m_socketFd(socketFd), m_isConnected(true) {
+    : m_socketFd(socketFd), m_isConnected(true), m_connectTimeoutMs(-1) {
 }
 
 UnixTcpSocket::~UnixTcpSocket() {
@@ -109,9 +109,69 @@ bool UnixTcpSocket::Connect(const NetworkAddress& remoteAddress) {
         return false;
 
     sockaddr_in addr = CreateSockAddr(remoteAddress);
+    
+    if (m_connectTimeoutMs <= 0) {
+        // Blocking connect with system default timeout
+        int result = connect(m_socketFd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
+        m_isConnected = (result == 0);
+        return m_isConnected;
+    }
+    
+    // Non-blocking connect with custom timeout
+    // Save original socket flags
+    int flags = fcntl(m_socketFd, F_GETFL, 0);
+    if (flags == -1) return false;
+    
+    // Set non-blocking mode
+    if (fcntl(m_socketFd, F_SETFL, flags | O_NONBLOCK) == -1) 
+        return false;
+    
+    // Initiate connection
     int result = connect(m_socketFd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
-    m_isConnected = (result == 0);  // Connect returns 0 on success, not non-zero
-    return m_isConnected;
+    
+    if (result == 0) {
+        // Immediate connection success
+        fcntl(m_socketFd, F_SETFL, flags); // Restore blocking mode
+        m_isConnected = true;
+        return true;
+    }
+    
+    if (errno != EINPROGRESS) {
+        // Connection failed immediately
+        fcntl(m_socketFd, F_SETFL, flags); // Restore blocking mode
+        return false;
+    }
+    
+    // Wait for the socket to become writable (connection complete)
+    fd_set writeSet;
+    FD_ZERO(&writeSet);
+    FD_SET(m_socketFd, &writeSet);
+    
+    struct timespec timeout;
+    timeout.tv_sec = m_connectTimeoutMs / 1000;
+    timeout.tv_nsec = (m_connectTimeoutMs % 1000) * 1000000;
+    
+    result = pselect(m_socketFd + 1, NULL, &writeSet, NULL, &timeout, NULL);
+    
+    // Restore blocking mode regardless of outcome
+    fcntl(m_socketFd, F_SETFL, flags);
+    
+    if (result <= 0) {
+        // Timeout or error
+        m_isConnected = false;
+        return false;
+    }
+    
+    // Check if connection was successful
+    int error = 0;
+    socklen_t len = sizeof(error);
+    if (getsockopt(m_socketFd, SOL_SOCKET, SO_ERROR, &error, &len) < 0 || error) {
+        m_isConnected = false;
+        return false;
+    }
+    
+    m_isConnected = true;
+    return true;
 }
 
 int UnixTcpSocket::Send(const std::vector<std::byte>& data) {
@@ -142,6 +202,16 @@ NetworkAddress UnixTcpSocket::GetRemoteAddress() const {
         return CreateNetworkAddress(addr);
     }
     return NetworkAddress();
+}
+
+bool UnixTcpSocket::SetConnectTimeout(int timeoutMs) {
+    if (timeoutMs < 0) {
+        // Use system default
+        m_connectTimeoutMs = -1;
+    } else {
+        m_connectTimeoutMs = timeoutMs;
+    }
+    return true; // Indicate success (no direct socket option needed here)
 }
 
 bool UnixTcpSocket::SetNoDelay(bool enable) {

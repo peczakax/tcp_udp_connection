@@ -134,59 +134,96 @@ bool WindowsTcpSocket::Connect(const NetworkAddress& remoteAddress) {
     if (m_socket == INVALID_SOCKET)
         return false;
 
-    // Make sure socket is in non-blocking mode
-    u_long mode = 1;  // 1 = non-blocking mode
-    if (ioctlsocket(m_socket, FIONBIO, &mode) != 0) {
-        int error = WSAGetLastError();
-        std::cerr << "Failed to set non-blocking mode: " << error << std::endl;
+    // Begin connection attempt
+    sockaddr_in addr = CreateSockAddr(remoteAddress);
+    
+    // First, set the socket to non-blocking mode
+    u_long iMode = 1; // 1 = non-blocking
+    if (ioctlsocket(m_socket, FIONBIO, &iMode) != 0) {
+        std::cerr << "Failed to set socket to non-blocking mode" << std::endl;
+        return false;
+    }
+    
+    // Start non-blocking connect
+    int result = connect(m_socket, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
+    
+    // If connect returns immediately with success (unlikely for TCP)
+    if (result == 0) {
+        // Reset to blocking mode
+        iMode = 0;
+        ioctlsocket(m_socket, FIONBIO, &iMode);
+        m_isConnected = true;
+        return true;
+    }
+    
+    // If connect doesn't return WSAEWOULDBLOCK, it failed immediately
+    int err = WSAGetLastError();
+    if (err != WSAEWOULDBLOCK) {
+        std::cerr << "Connect failed immediately with error: " << err << std::endl;
+        return false;
+    }
+    
+    // Use select to wait for connection with exact timeout
+    fd_set writefds, exceptfds;
+    FD_ZERO(&writefds);
+    FD_ZERO(&exceptfds);
+    FD_SET(m_socket, &writefds);
+    FD_SET(m_socket, &exceptfds);
+    
+    // Use our specified connect timeout
+    struct timeval tv;
+    tv.tv_sec = m_connectTimeoutMs / 1000;
+    tv.tv_usec = (m_connectTimeoutMs % 1000) * 1000;
+    
+    std::cerr << "Waiting for connection with timeout: " << m_connectTimeoutMs << "ms" << std::endl;
+    
+    // The first parameter is ignored in Windows
+    result = select(0, NULL, &writefds, &exceptfds, &tv);
+    
+    // Timeout occurred
+    if (result == 0) {
+        std::cerr << "Connection timed out after " << m_connectTimeoutMs << "ms" << std::endl;
+        
+        // Cancel the pending connection by closing the socket and creating a new one
+        closesocket(m_socket);
+        m_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
         m_isConnected = false;
         return false;
     }
-
-    sockaddr_in addr = CreateSockAddr(remoteAddress);
-    int result = connect(m_socket, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
+    
+    // Error occurred
+    if (result < 0) {
+        std::cerr << "Select failed with error: " << WSAGetLastError() << std::endl;
+        m_isConnected = false;
+        return false;
+    }
+    
+    // Check if the socket is in the exception set
+    if (FD_ISSET(m_socket, &exceptfds)) {
+        std::cerr << "Connection failed with socket exception" << std::endl;
+        m_isConnected = false;
+        return false;
+    }
     
     // Check for socket errors
-    if (result != 0) {
-        int errorCode = WSAGetLastError();
-        // WSAEWOULDBLOCK means the connection is in progress (non-blocking sockets)
-        // WSAEALREADY means the connection is already in progress
-        if (errorCode != WSAEWOULDBLOCK && errorCode != WSAEALREADY) {
-            std::cerr << "Connection failed with error: " << errorCode << std::endl;
+    int optval = 0;
+    int optlen = sizeof(optval);
+    if (getsockopt(m_socket, SOL_SOCKET, SO_ERROR, (char*)&optval, &optlen) == 0) {
+        if (optval != 0) {
+            std::cerr << "Connection failed with socket error: " << optval << std::endl;
             m_isConnected = false;
             return false;
         }
-        
-        // For non-blocking sockets, wait for connection completion
-        fd_set writeSet, errorSet;
-        FD_ZERO(&writeSet);
-        FD_ZERO(&errorSet);
-        FD_SET(m_socket, &writeSet);
-        FD_SET(m_socket, &errorSet);
-        
-        struct timeval timeout;
-        timeout.tv_sec = 10;  // Increase timeout to 10 seconds
-        timeout.tv_usec = 0;
-        
-        // Check if the socket is ready for writing or has an error
-        result = select(0, NULL, &writeSet, &errorSet, &timeout);
-        
-        if (result <= 0 || FD_ISSET(m_socket, &errorSet)) {
-            errorCode = 0;
-            int errLen = sizeof(errorCode);
-            getsockopt(m_socket, SOL_SOCKET, SO_ERROR, (char*)&errorCode, &errLen);
-            std::cerr << "Connection timed out or failed with error: " << errorCode << std::endl;
-            m_isConnected = false;
-            return false;
-        }
-
-        // Switch back to blocking mode after connection
-        mode = 0;  // 0 = blocking mode
-        ioctlsocket(m_socket, FIONBIO, &mode);
+    }
+    
+    // Reset to blocking mode
+    iMode = 0;
+    if (ioctlsocket(m_socket, FIONBIO, &iMode) != 0) {
+        std::cerr << "Warning: Failed to set socket back to blocking mode" << std::endl;
     }
     
     m_isConnected = true;
-    return m_isConnected;
+    return true;
 }
 
 int WindowsTcpSocket::Send(const std::vector<std::byte>& data) {
@@ -218,6 +255,14 @@ NetworkAddress WindowsTcpSocket::GetRemoteAddress() const {
         return CreateNetworkAddress(addr);
     }
     return NetworkAddress();
+}
+
+bool WindowsTcpSocket::SetConnectTimeout(int timeoutMs) {
+    // Store the timeout value to be used in Connect method
+    if (timeoutMs > 0) {
+        m_connectTimeoutMs = timeoutMs;
+    }
+    return true;
 }
 
 bool WindowsTcpSocket::SetNoDelay(bool enable) {

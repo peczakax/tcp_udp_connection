@@ -26,8 +26,6 @@ public:
     virtual bool Bind(const NetworkAddress& localAddress) = 0;
     virtual NetworkAddress GetLocalAddress() const = 0;
     virtual bool IsValid() const = 0;
-    
-    // Method to check for available data with timeout
     virtual bool WaitForDataWithTimeout(int timeoutMs) = 0;
 };
 
@@ -39,6 +37,7 @@ public:
     virtual int Send(const std::vector<std::byte>& data) = 0;
     virtual int Receive(std::vector<std::byte>& buffer) = 0;
     virtual NetworkAddress GetRemoteAddress() const = 0;
+    virtual bool SetConnectTimeout(int timeoutMs) = 0;
 };
 
 // Interface for server-side of connection-oriented sockets
