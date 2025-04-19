@@ -284,6 +284,15 @@ bool WindowsTcpSocket::WaitForDataWithTimeout(int timeoutMs) {
 // WindowsTcpListener Implementation
 WindowsTcpListener::WindowsTcpListener() 
     : m_socket(INVALID_SOCKET) {
+    // Ensure Winsock is initialized before creating socket
+    static bool winsockInitialized = false;
+    if (!winsockInitialized) {
+        WSADATA wsaData;
+        if (WSAStartup(MAKEWORD(2, 2), &wsaData) == 0) {
+            winsockInitialized = true;
+        }
+    }
+    
     m_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 }
 
@@ -365,6 +374,15 @@ bool WindowsTcpListener::WaitForDataWithTimeout(int timeoutMs) {
 // WindowsUdpSocket Implementation
 WindowsUdpSocket::WindowsUdpSocket() 
     : m_socket(INVALID_SOCKET) {
+    // Ensure Winsock is initialized before creating socket
+    static bool winsockInitialized = false;
+    if (!winsockInitialized) {
+        WSADATA wsaData;
+        if (WSAStartup(MAKEWORD(2, 2), &wsaData) == 0) {
+            winsockInitialized = true;
+        }
+    }
+    
     m_socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 }
 

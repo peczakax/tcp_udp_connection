@@ -12,10 +12,11 @@ endif()
 add_executable(
   network_tests
   tcp_socket_test.cpp
-  tcp_timeout_test.cpp 
+  tcp_timeout_test.cpp
   udp_socket_test.cpp
-  udp_timeout_test.cpp 
-  client_server_connection_test.cpp
+  udp_timeout_test.cpp
+  tcp_client_server_connection_test.cpp
+  udp_client_server_connection_test.cpp
 )
 
 # Link against GoogleTest/GoogleMock and our library
