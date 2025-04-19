@@ -38,11 +38,6 @@ public:
         stop();
     }
 
-    // Static method to allow time between tests for socket cleanup
-    static void WaitForSocketCleanup() {
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    }
-
     bool start() {
         if (!listener->IsValid()) {
             errorMessage = "Failed to create valid listener";
@@ -139,10 +134,7 @@ private:
 // Test fixture for TCP client-server tests
 class TcpClientServerConnectionTest : public ::testing::Test {
 protected:
-    void SetUp() override {
-        // Make sure any previous test's sockets are cleaned up
-        TestTcpServer::WaitForSocketCleanup();
-    }
+    void SetUp() override {}
 
     void TearDown() override {
         if (client) {

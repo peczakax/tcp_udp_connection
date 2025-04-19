@@ -40,11 +40,6 @@ public:
         stop();
     }
 
-    // Static method to allow time between tests for socket cleanup
-    static void WaitForSocketCleanup() {
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    }
-
     bool start() {
         if (!socket->IsValid()) {
             errorMessage = "Failed to create valid UDP socket";
@@ -138,10 +133,7 @@ private:
 // Test fixture for UDP client-server tests
 class UdpClientServerConnectionTest : public ::testing::Test {
 protected:
-    void SetUp() override {
-        // Make sure any previous test's sockets are cleaned up
-        TestUdpServer::WaitForSocketCleanup();
-    }
+    void SetUp() override {}
 
     void TearDown() override {
         if (client) {
