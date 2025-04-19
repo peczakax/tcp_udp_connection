@@ -27,14 +27,18 @@ This project uses CMake as its build system. Here's how to build it:
 mkdir -p build
 cd build
 cmake ..
+# On Unix-like systems (Linux, macOS)
 make
+# On Windows with Visual Studio, or more generally:
+cmake --build .
 ```
 
 To build in release mode:
 
 ```bash
+# Ensure you are in the build directory
 cmake -DCMAKE_BUILD_TYPE=Release ..
-make
+cmake --build . --config Release
 ```
 
 ## Running Tests
@@ -43,9 +47,12 @@ The library includes a comprehensive test suite built with Google Test:
 
 ```bash
 cd build
-ctest
-# or run the test executable directly
-./tests/network_tests
+# Run tests using CTest
+ctest --output-on-failure
+# Or, run the specific test target if using CMake build command
+cmake --build . --target RUN_TESTS
+# Or, run the test executable directly (name might vary based on build config)
+./tests/network_tests # (or tests\Debug\network_tests.exe on Windows)
 ```
 
 ## Examples
@@ -83,46 +90,92 @@ These examples show how to:
 
 ```
 tcp_udp_connection/
-├── CMakeLists.txt                 # Main CMake file
-├── README.md                      # Project documentation
-├── app/                           # Live chat applications
-│   ├── CMakeLists.txt             # App build configuration
-│   ├── tcp_live_chat_client.cpp   # TCP chat client implementation
-│   ├── tcp_live_chat_server.cpp   # TCP chat server implementation
-│   ├── udp_live_chat_client.cpp   # UDP chat client implementation
-│   └── udp_live_chat_server.cpp   # UDP chat server implementation
-├── include/                       # Public API headers
-│   └── network/                   # Library namespace
-│       ├── network.h              # Core networking abstractions
-│       ├── tcp_socket.h           # TCP-specific interfaces
-│       ├── udp_socket.h           # UDP-specific interfaces
-│       └── platform_factory.h     # Factory interface
-├── src/                           # Implementation files
-│   ├── CMakeLists.txt             # Library build configuration
-│   ├── platform_factory.cpp       # Factory implementation
-│   ├── unix/                      # Unix-specific implementations
-│   │   ├── CMakeLists.txt         # Unix build configuration
-│   │   ├── unix_sockets.h         # Unix internal header
-│   │   └── unix_sockets.cpp       # Unix implementation
-│   └── windows/                   # Windows-specific implementations
-│       ├── CMakeLists.txt         # Windows build configuration
-│       ├── windows_sockets.h      # Windows internal header
-│       └── windows_sockets.cpp    # Windows implementation
-├── tests/                         # Test suite
-│   ├── CMakeLists.txt             # Test build configuration
-│   ├── tcp_socket_test.cpp        # TCP socket tests
-│   ├── tcp_timeout_test.cpp       # TCP timeout functionality tests
-│   ├── udp_socket_test.cpp        # UDP socket tests
-│   └── udp_timeout_test.cpp       # UDP timeout functionality tests
-└── examples/                      # Example applications
-    ├── CMakeLists.txt             # Examples build configuration
-    ├── examples.cpp               # Common examples code
-    ├── tcp_client.cpp             # TCP client example
-    ├── tcp_server.cpp             # TCP server example
-    ├── udp_broadcast.cpp          # UDP broadcast example
-    ├── udp_multicast.cpp          # UDP multicast example
-    ├── udp_receiver.cpp           # UDP receiver example
-    └── udp_sender.cpp             # UDP sender example
+├── CMakeLists.txt                 
+│   └── Main CMake file
+├── README.md                      
+│   └── Project documentation
+├── app/                           
+│   └── Live chat applications
+│   ├── CMakeLists.txt             
+│   │   └── App build configuration
+│   ├── tcp_live_chat_client.cpp   
+│   │   └── TCP chat client implementation
+│   ├── tcp_live_chat_server.cpp   
+│   │   └── TCP chat server implementation
+│   ├── udp_live_chat_client.cpp   
+│   │   └── UDP chat client implementation
+│   └── udp_live_chat_server.cpp   
+│   │   └── UDP chat server implementation
+├── include/                       
+│   └── Public API headers
+│   └── network/                   
+│       └── Library namespace
+│       ├── network.h              
+│       │   └── Core networking abstractions
+│       ├── tcp_socket.h           
+│       │   └── TCP-specific interfaces
+│       ├── udp_socket.h           
+│       │   └── UDP-specific interfaces
+│       └── platform_factory.h     
+│           └── Factory interface
+├── src/                           
+│   └── Implementation files
+│   ├── CMakeLists.txt             
+│   │   └── Library build configuration
+│   ├── platform_factory.cpp       
+│   │   └── Factory implementation
+│   ├── unix/                      
+│   │   └── Unix-specific implementations
+│   │   ├── CMakeLists.txt         
+│   │   │   └── Unix build configuration
+│   │   ├── unix_sockets.h         
+│   │   │   └── Unix internal header
+│   │   └── unix_sockets.cpp       
+│   │       └── Unix implementation
+│   └── windows/                   
+│       └── Windows-specific implementations
+│       ├── CMakeLists.txt         
+│       │   └── Windows build configuration
+│       ├── windows_sockets.h      
+│       │   └── Windows internal header
+│       └── windows_sockets.cpp    
+│           └── Windows implementation
+├── tests/                         
+│   └── Test suite
+│   ├── CMakeLists.txt             
+│   │   └── Test build configuration
+│   ├── tcp_client_server_connection_test.cpp 
+│   │   └── TCP client/server connection tests
+│   ├── tcp_socket_test.cpp        
+│   │   └── TCP socket functionality tests
+│   ├── tcp_timeout_test.cpp       
+│   │   └── TCP timeout functionality tests
+│   ├── udp_client_server_connection_test.cpp 
+│   │   └── UDP client/server connection tests
+│   ├── udp_socket_test.cpp        
+│   │   └── UDP socket functionality tests
+│   ├── udp_timeout_test.cpp       
+│   │   └── UDP timeout functionality tests
+│   └── utils/                     
+│       └── Test utilities
+└── examples/                      
+    └── Example applications
+    ├── CMakeLists.txt             
+    │   └── Examples build configuration
+    ├── examples.cpp               
+    │   └── Common examples code (if exists)
+    ├── tcp_client.cpp             
+    │   └── TCP client example
+    ├── tcp_server.cpp             
+    │   └── TCP server example
+    ├── udp_broadcast.cpp          
+    │   └── UDP broadcast example
+    ├── udp_multicast.cpp          
+    │   └── UDP multicast example
+    ├── udp_receiver.cpp           
+    │   └── UDP receiver example
+    └── udp_sender.cpp             
+        └── UDP sender example
 ```
 
 ## Cross-Platform Support
@@ -181,9 +234,10 @@ Interfaces for sockets that establish a connection before data transfer (like TC
 class IConnectionOrientedSocket : public ISocketBase {
 public:
     virtual bool Connect(const NetworkAddress& remoteAddress) = 0;
-    virtual int Send(const std::vector<char>& data) = 0;
-    virtual int Receive(std::vector<char>& buffer, int maxSize = -1) = 0;
+    virtual int Send(const std::vector<std::byte>& data) = 0;
+    virtual int Receive(std::vector<std::byte>& buffer) = 0;
     virtual NetworkAddress GetRemoteAddress() const = 0;
+    virtual bool SetConnectTimeout(int timeoutMs) = 0;
 };
 
 class IConnectionListener : public ISocketBase {
@@ -202,8 +256,8 @@ Interface for sockets that send data without establishing a connection (like UDP
 // ...
 class IConnectionlessSocket : public ISocketBase {
 public:
-    virtual int SendTo(const std::vector<char>& data, const NetworkAddress& remoteAddress) = 0;
-    virtual int ReceiveFrom(std::vector<char>& buffer, NetworkAddress& remoteAddress, int maxSize = -1) = 0;
+    virtual int SendTo(const std::vector<std::byte>& data, const NetworkAddress& remoteAddress) = 0;
+    virtual int ReceiveFrom(std::vector<std::byte>& buffer, NetworkAddress& remoteAddress) = 0;
 };
 // ...
 ```
@@ -296,7 +350,8 @@ auto clientSocket = factory->CreateTcpSocket();
 NetworkAddress serverTarget("127.0.0.1", 8080);
 if (clientSocket->Connect(serverTarget)) {
     std::cout << "Connected to server." << std::endl;
-    std::vector<char> data = {'H', 'e', 'l', 'l', 'o'};
+    // Use std::byte for data transfer
+    std::vector<std::byte> data = {std::byte{'H'}, std::byte{'e'}, std::byte{'l'}, std::byte{'l'}, std::byte{'o'}};
     clientSocket->Send(data);
     // ... receive response ...
     clientSocket->Close();
@@ -317,13 +372,13 @@ NetworkAddress localAddr("0.0.0.0", 9090); // Bind to specific local port
 if (udpSocket->Bind(localAddr)) {
     std::cout << "UDP Socket bound to " << udpSocket->GetLocalAddress().port << std::endl;
 
-    // Sending data
-    std::vector<char> data = {'P', 'i', 'n', 'g'};
+    // Sending data (use std::byte)
+    std::vector<std::byte> data = {std::byte{'P'}, std::byte{'i'}, std::byte{'n'}, std::byte{'g'}};
     NetworkAddress destAddr("192.168.1.100", 9090);
     udpSocket->SendTo(data, destAddr);
 
-    // Receiving data
-    std::vector<char> buffer;
+    // Receiving data (use std::byte)
+    std::vector<std::byte> buffer;
     NetworkAddress senderAddr;
     if (udpSocket->WaitForDataWithTimeout(1000)) { // Wait 1 second
         udpSocket->ReceiveFrom(buffer, senderAddr);
@@ -334,10 +389,10 @@ if (udpSocket->Bind(localAddr)) {
     std::cerr << "Failed to bind UDP socket." << std::endl;
 }
 
-// UDP Broadcast example
+// UDP Broadcast example (use std::byte)
 auto broadcastSocket = factory->CreateUdpSocket();
 if (broadcastSocket->SetBroadcast(true)) {
-    std::vector<char> broadcastData = {'B', 'r', 'o', 'a', 'd', 'c', 'a', 's', 't'};
+    std::vector<std::byte> broadcastData = {std::byte{'B'}, std::byte{'r'}, std::byte{'o'}, std::byte{'a'}, std::byte{'d'}, std::byte{'c'}, std::byte{'a'}, std::byte{'s'}, std::byte{'t'}};
     NetworkAddress broadcastAddr("255.255.255.255", 9999);
     broadcastSocket->SendTo(broadcastData, broadcastAddr);
     std::cout << "Sent broadcast message." << std::endl;
@@ -367,11 +422,10 @@ try {
     NetworkAddress serverAddr("127.0.0.1", 8080);
     if (!socket->Connect(serverAddr)) {
         std::cerr << "Failed to connect to server." << std::endl;
-        // Further error details might require platform-specific checks (errno/WSAGetLastError)
-        // if the boolean return isn't sufficient.
+        // Consider using socket->SetConnectTimeout() if needed
     } else {
         // Connection successful
-        std::vector<char> data = {'T', 'e', 's', 't'};
+        std::vector<std::byte> data = {std::byte{'T'}, std::byte{'e'}, std::byte{'s'}, std::byte{'t'}};
         int bytesSent = socket->Send(data);
         if (bytesSent < 0) {
              std::cerr << "Failed to send data." << std::endl;
@@ -400,9 +454,10 @@ classDiagram
     class IConnectionOrientedSocket {
         <<interface>>
         +Connect(remoteAddress)
-        +Send(data)
-        +Receive(buffer, maxSize)
+        +Send(data_byte_vector)
+        +Receive(buffer_byte_vector)
         +GetRemoteAddress()
+        +SetConnectTimeout(timeoutMs)
     }
 
     class IConnectionListener {
@@ -413,8 +468,8 @@ classDiagram
 
     class IConnectionlessSocket {
         <<interface>>
-        +SendTo(data, remoteAddress)
-        +ReceiveFrom(buffer, remoteAddress, maxSize)
+        +SendTo(data_byte_vector, remoteAddress)
+        +ReceiveFrom(buffer_byte_vector, remoteAddress)
     }
 
     class ITcpSocket {
@@ -463,8 +518,8 @@ Both TCP and UDP implementations support non-blocking operations with configurab
 // Example of using timeout functionality
 if (socket->WaitForDataWithTimeout(500)) { // Wait for 500ms
     // Data is available, receive it
-    std::vector<char> buffer(1024);
-    int bytesReceived = socket->Receive(buffer, buffer.size());
+    std::vector<std::byte> buffer(1024);
+    int bytesReceived = socket->Receive(buffer);
 } else {
     // Timeout occurred, no data available
 }
@@ -501,4 +556,4 @@ This project is available under the MIT License.
 
 ## Last Updated
 
-April 15, 2025
+April 19, 2025
