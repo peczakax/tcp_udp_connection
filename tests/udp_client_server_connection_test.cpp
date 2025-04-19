@@ -135,26 +135,61 @@ private:
     }
 };
 
-// Test UDP client-server basic communication
-TEST(ClientServerConnectionTest, UdpBasicCommunication) {
-    // Make sure any previous test's sockets are cleaned up
-    TestUdpServer::WaitForSocketCleanup();
+// Test fixture for UDP client-server tests
+class UdpClientServerConnectionTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        // Make sure any previous test's sockets are cleaned up
+        TestUdpServer::WaitForSocketCleanup();
+    }
 
+    void TearDown() override {
+        if (client) {
+            client->Close();
+            client.reset();
+        }
+        
+        if (server) {
+            server->stop();
+            server.reset();
+        }
+    }
+
+    // Helper method to create and start a server
+    bool CreateAndStartServer(int port) {
+        server = std::make_unique<TestUdpServer>(port);
+        if (!server->start()) {
+            return false;
+        }
+        return true;
+    }
+
+    // Helper method to create and bind a client
+    bool CreateAndBindClient() {
+        client = g_factory->CreateUdpSocket();
+        if (!client->IsValid()) {
+            return false;
+        }
+        
+        // Bind client to a specific local address (optional)
+        // Using port 0 here is fine since we're only sending from this port
+        return client->Bind(NetworkAddress("127.0.0.1", 0));
+    }
+
+    std::unique_ptr<TestUdpServer> server;
+    std::unique_ptr<IUdpSocket> client;
+};
+
+// Test UDP client-server basic communication
+TEST_F(UdpClientServerConnectionTest, BasicCommunication) {
     // Start UDP server with specific port
-    TestUdpServer server(45100);
-    ASSERT_TRUE(server.start()) << "Failed to start UDP server: " << server.getErrorMessage();
+    ASSERT_TRUE(CreateAndStartServer(45100)) << "Failed to start UDP server: " << server->getErrorMessage();
 
     // Get server address
-    NetworkAddress serverAddr = server.getServerAddress();
+    NetworkAddress serverAddr = server->getServerAddress();
 
-    // Create UDP client
-    auto& factory = g_factory;
-    auto client = factory->CreateUdpSocket();
-    ASSERT_TRUE(client->IsValid());
-
-    // Bind client to a specific local address (optional)
-    // Using port 0 here is fine since we're only sending from this port
-    EXPECT_TRUE(client->Bind(NetworkAddress("127.0.0.1", 0)));
+    // Create and bind UDP client
+    ASSERT_TRUE(CreateAndBindClient());
 
     // Send data from client to server
     std::string testMessage = "Hello, UDP Server!";
@@ -166,8 +201,8 @@ TEST(ClientServerConnectionTest, UdpBasicCommunication) {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     // Verify server received the message
-    EXPECT_TRUE(server.wasMessageReceived()) << "Server didn't receive any message";
-    EXPECT_EQ(server.getReceivedMessage(), testMessage);
+    EXPECT_TRUE(server->wasMessageReceived()) << "Server didn't receive any message";
+    EXPECT_EQ(server->getReceivedMessage(), testMessage);
 
     // Receive echo response
     std::vector<std::byte> recvBuffer(1024);
@@ -180,8 +215,4 @@ TEST(ClientServerConnectionTest, UdpBasicCommunication) {
     recvBuffer.resize(bytesReceived);
     std::string response = NetworkUtils::BytesToString(recvBuffer);
     EXPECT_EQ(response, testMessage);
-
-    // Clean up
-    client->Close();
-    server.stop();
 }

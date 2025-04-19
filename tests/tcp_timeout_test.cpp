@@ -6,7 +6,7 @@
 #include "network/tcp_socket.h"
 
 // Mock class for TCP socket - just for timeout tests
-class MockTcpSocketForTimeout : public ITcpSocket {
+class MockTcpSocketForTimeout final : public ITcpSocket {
 public:
     MOCK_METHOD(void, Close, (), (override));
     MOCK_METHOD(bool, Bind, (const NetworkAddress& localAddress), (override));
@@ -18,7 +18,7 @@ public:
     MOCK_METHOD(NetworkAddress, GetRemoteAddress, (), (const, override));
     MOCK_METHOD(bool, SetNoDelay, (bool enable), (override));
     MOCK_METHOD(bool, WaitForDataWithTimeout, (int timeoutMs), (override));
-    MOCK_METHOD(bool, SetConnectTimeout, (int timeoutMs), (override)); // Add this line
+    MOCK_METHOD(bool, SetConnectTimeout, (int timeoutMs), (override));
 };
 
 // Mock class for TCP listener - just for timeout tests

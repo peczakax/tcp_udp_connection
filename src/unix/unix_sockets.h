@@ -27,7 +27,7 @@ namespace UnixSocketHelpers {
 }
 
 // Unix implementation of TCP socket
-class UnixTcpSocket : public ITcpSocket {
+class UnixTcpSocket final : public ITcpSocket {
 public:
     UnixTcpSocket();
     explicit UnixTcpSocket(int socketFd);
@@ -76,7 +76,7 @@ private:
 };
 
 // Unix implementation of UDP socket
-class UnixUdpSocket : public IUdpSocket {
+class UnixUdpSocket final : public IUdpSocket {
 public:
     UnixUdpSocket();
     ~UnixUdpSocket() override;

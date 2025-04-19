@@ -6,7 +6,7 @@
 #include "network/byte_utils.h"
 
 // Mock class for TCP socket
-class MockTcpSocket : public ITcpSocket {
+class MockTcpSocket final : public ITcpSocket {
 public:
     MOCK_METHOD(void, Close, (), (override));
     MOCK_METHOD(bool, Bind, (const NetworkAddress& localAddress), (override));

@@ -23,7 +23,7 @@ namespace WindowsSocketHelpers {
 }
 
 // Windows implementation of TCP socket
-class WindowsTcpSocket : public ITcpSocket {
+class WindowsTcpSocket final : public ITcpSocket {
 public:
     WindowsTcpSocket();
     explicit WindowsTcpSocket(SOCKET socket);
@@ -72,7 +72,7 @@ private:
 };
 
 // Windows implementation of UDP socket
-class WindowsUdpSocket : public IUdpSocket {
+class WindowsUdpSocket final : public IUdpSocket {
 public:
     WindowsUdpSocket();
     ~WindowsUdpSocket() override;

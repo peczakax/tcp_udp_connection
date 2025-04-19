@@ -6,7 +6,7 @@
 #include "network/udp_socket.h"
 
 // Mock class for UDP socket - just for timeout tests
-class MockUdpSocketForTimeout : public IUdpSocket {
+class MockUdpSocketForTimeout final : public IUdpSocket {
 public:
     MOCK_METHOD(void, Close, (), (override));
     MOCK_METHOD(bool, Bind, (const NetworkAddress& localAddress), (override));

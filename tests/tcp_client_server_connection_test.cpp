@@ -136,24 +136,57 @@ private:
     }
 };
 
+// Test fixture for TCP client-server tests
+class TcpClientServerConnectionTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        // Make sure any previous test's sockets are cleaned up
+        TestTcpServer::WaitForSocketCleanup();
+    }
+
+    void TearDown() override {
+        if (client) {
+            client->Close();
+            client.reset();
+        }
+        
+        if (server) {
+            server->stop();
+            server.reset();
+        }
+    }
+
+    // Helper method to create and start a server
+    bool CreateAndStartServer(int port) {
+        server = std::make_unique<TestTcpServer>(port);
+        if (!server->start()) {
+            return false;
+        }
+        return true;
+    }
+
+    // Helper method to create and connect a client
+    bool CreateAndConnectClient(const NetworkAddress& serverAddr) {
+        client = g_factory->CreateTcpSocket();
+        if (!client->Connect(serverAddr)) {
+            return false;
+        }
+        return true;
+    }
+
+    std::unique_ptr<TestTcpServer> server;
+    std::unique_ptr<ITcpSocket> client;
+};
+
 // Test TCP client-server basic connection
-TEST(ClientServerConnectionTest, TcpBasicConnection) {
-    // Make sure any previous test's sockets are cleaned up
-    TestTcpServer::WaitForSocketCleanup();
-
+TEST_F(TcpClientServerConnectionTest, BasicConnection) {
     // Start TCP server with specific port
-    TestTcpServer server(45000);
-    ASSERT_TRUE(server.start()) << "Failed to start TCP server: " << server.getErrorMessage();
+    ASSERT_TRUE(CreateAndStartServer(45000)) << "Failed to start TCP server: " << server->getErrorMessage();
 
-    // Get server address
-    NetworkAddress serverAddr = server.getServerAddress();
-
-    // Create and connect TCP client
-    auto& factory = g_factory;
-    auto client = factory->CreateTcpSocket();
-
-    ASSERT_TRUE(client->Connect(serverAddr)) << "Failed to connect to server at " <<
-        serverAddr.ipAddress << ":" << serverAddr.port;
+    // Get server address and connect client
+    NetworkAddress serverAddr = server->getServerAddress();
+    ASSERT_TRUE(CreateAndConnectClient(serverAddr)) << "Failed to connect to server at " 
+        << serverAddr.ipAddress << ":" << serverAddr.port;
 
     // Send data from client to server
     std::string testMessage = "Hello, TCP Server!";
@@ -165,8 +198,8 @@ TEST(ClientServerConnectionTest, TcpBasicConnection) {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     // Verify server received the message
-    EXPECT_TRUE(server.wasMessageReceived()) << "Server didn't receive any message";
-    EXPECT_EQ(server.getReceivedMessage(), testMessage);
+    EXPECT_TRUE(server->wasMessageReceived()) << "Server didn't receive any message";
+    EXPECT_EQ(server->getReceivedMessage(), testMessage);
 
     // Receive echo response
     std::vector<std::byte> recvBuffer;
@@ -177,44 +210,34 @@ TEST(ClientServerConnectionTest, TcpBasicConnection) {
         std::string response = NetworkUtils::BytesToString(recvBuffer);
         EXPECT_EQ(response, testMessage);
     }
-
-    // Clean up
-    client->Close();
-    server.stop();
 }
 
 // Test multiple connections to TCP server
-TEST(ClientServerConnectionTest, TcpMultipleConnections) {
-    // Make sure any previous test's sockets are cleaned up
-    TestTcpServer::WaitForSocketCleanup();
-
+TEST_F(TcpClientServerConnectionTest, MultipleConnections) {
     // Start TCP server with specific port
-    TestTcpServer server(45200);
-    ASSERT_TRUE(server.start()) << "Failed to start TCP server: " << server.getErrorMessage();
+    ASSERT_TRUE(CreateAndStartServer(45200)) << "Failed to start TCP server: " << server->getErrorMessage();
 
     // Get server address
-    NetworkAddress serverAddr = server.getServerAddress();
-
-    auto& factory = g_factory;
+    NetworkAddress serverAddr = server->getServerAddress();
     const int numClients = 3;
 
     // Function to run a client connection test
-    auto runClient = [&](int clientId) -> bool {
-        auto client = factory->CreateTcpSocket();
-        if (!client->Connect(serverAddr)) {
+    auto runClient = [this, &serverAddr](int clientId) -> bool {
+        auto tempClient = g_factory->CreateTcpSocket();
+        if (!tempClient->Connect(serverAddr)) {
             return false;
         }
 
         std::string testMessage = "Hello from client " + std::to_string(clientId);
         std::vector<std::byte> sendData = NetworkUtils::StringToBytes(testMessage);
-        int bytesSent = client->Send(sendData);
+        int bytesSent = tempClient->Send(sendData);
 
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
         std::vector<std::byte> recvBuffer;
-        int bytesReceived = client->Receive(recvBuffer);
+        int bytesReceived = tempClient->Receive(recvBuffer);
 
-        client->Close();
+        tempClient->Close();
         return (bytesReceived > 0);
     };
 
@@ -224,15 +247,12 @@ TEST(ClientServerConnectionTest, TcpMultipleConnections) {
         // Give server time to reset between connections
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
-
-    server.stop();
 }
 
-// Test connection timeouts
-TEST(ClientServerConnectionTest, ConnectionTimeouts) {
+// Test connection timeouts - doesn't need a server
+TEST_F(TcpClientServerConnectionTest, ConnectionTimeouts) {
     // Try to connect to a server that doesn't exist
-    auto& factory = g_factory;
-    auto client = factory->CreateTcpSocket();
+    client = g_factory->CreateTcpSocket();
 
     // Set a short connection timeout (e.g., 1 second)
     const int connectTimeoutMs = 1000;
@@ -250,26 +270,17 @@ TEST(ClientServerConnectionTest, ConnectionTimeouts) {
     // Allow some buffer around the timeout value (e.g., +/- 500ms)
     EXPECT_GE(duration.count(), connectTimeoutMs - 500);
     EXPECT_LT(duration.count(), connectTimeoutMs + 500);
-
-    client->Close();
 }
 
 // Test non-blocking behavior with WaitForDataWithTimeout
-TEST(ClientServerConnectionTest, NonBlockingOperation) {
-    // Make sure any previous test's sockets are cleaned up
-    TestTcpServer::WaitForSocketCleanup();
-
+TEST_F(TcpClientServerConnectionTest, NonBlockingOperation) {
     // Start TCP server with specific port
-    TestTcpServer server(45300);
-    ASSERT_TRUE(server.start()) << "Failed to start TCP server: " << server.getErrorMessage();
+    ASSERT_TRUE(CreateAndStartServer(45300)) << "Failed to start TCP server: " << server->getErrorMessage();
 
-    // Get server address
-    NetworkAddress serverAddr = server.getServerAddress();
-
-    auto& factory = g_factory;
-    auto client = factory->CreateTcpSocket();
-    ASSERT_TRUE(client->Connect(serverAddr)) << "Failed to connect to server at " <<
-        serverAddr.ipAddress << ":" << serverAddr.port;
+    // Get server address and connect client
+    NetworkAddress serverAddr = server->getServerAddress();
+    ASSERT_TRUE(CreateAndConnectClient(serverAddr)) << "Failed to connect to server at " 
+        << serverAddr.ipAddress << ":" << serverAddr.port;
 
     // There should be no data available to read initially
     EXPECT_FALSE(client->WaitForDataWithTimeout(100));
@@ -289,7 +300,4 @@ TEST(ClientServerConnectionTest, NonBlockingOperation) {
     std::vector<std::byte> recvBuffer;
     int bytesReceived = client->Receive(recvBuffer);
     EXPECT_GT(bytesReceived, 0) << "Failed to receive data";
-
-    client->Close();
-    server.stop();
 }

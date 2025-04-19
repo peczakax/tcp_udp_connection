@@ -6,7 +6,7 @@
 #include <cstddef> // For std::byte
 
 // Mock class for UDP socket
-class MockUdpSocket : public IUdpSocket {
+class MockUdpSocket final : public IUdpSocket {
 public:
     MOCK_METHOD(void, Close, (), (override));
     MOCK_METHOD(bool, Bind, (const NetworkAddress& localAddress), (override));
