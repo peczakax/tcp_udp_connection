@@ -11,6 +11,14 @@
 #include <mutex>
 #include <condition_variable>
 
+// Include Win32 headers in the correct order to avoid conflicts
+#ifdef _WIN32
+#define NOMINMAX // Add this line to prevent min/max macro conflicts
+#define WIN32_LEAN_AND_MEAN
+#include <WinSock2.h>
+#include <Windows.h>
+#endif
+
 #include "network/network.h"
 #include "network/tcp_socket.h"
 #include "network/udp_socket.h"
@@ -143,7 +151,7 @@ void testRealDataWaitForDataWithTimeout(std::shared_ptr<MockSocketT> mockSocket)
             
             // Sleep until either timeout expires or data arrival time
             auto waitUntil = start + std::chrono::milliseconds(timeoutMs);
-            auto sleepUntil = std::min(waitUntil, dataArrivalTime);
+            auto sleepUntil = (std::min)(waitUntil, dataArrivalTime);
             
             std::this_thread::sleep_until(sleepUntil);
             
@@ -172,6 +180,22 @@ void testRealDataWaitForDataWithTimeout(std::shared_ptr<MockSocketT> mockSocket)
     EXPECT_LT(elapsed2, EXTENDED_TIMEOUT_MS);  // But not the full timeout
 }
 
+// Factory singleton for creating network sockets in tests
+class NetworkFactorySingleton {
+public:
+    static INetworkSocketFactory & GetInstance() {
+        if (!instance) {
+            factory = INetworkSocketFactory::CreatePlatformFactory();
+            instance = factory.get();
+        }
+        return *instance;
+    }
+
+private:
+    static std::unique_ptr<INetworkSocketFactory> factory;
+    static INetworkSocketFactory* instance;
+};
+
 // Common base class for test server infrastructure
 // T is the socket type that the server will use (ITcpListener or IUdpSocket)
 template <typename SocketT>
@@ -188,14 +212,10 @@ protected:
     std::string errorMessage;
     
 public:
-    // Factory for creating new sockets - made public for test fixtures
-    static std::unique_ptr<INetworkSocketFactory> g_factory;
+    // For backward compatibility with existing tests
+    static INetworkSocketFactory* g_factory;
     
-    TestServerBase(const std::string& ip, int port) : serverAddress(ip, port) {
-        if (!g_factory) {
-            g_factory = INetworkSocketFactory::CreatePlatformFactory();
-        }
-    }
+    TestServerBase(const std::string& ip, int port) : serverAddress(ip, port) {}
     
     virtual ~TestServerBase() {
         stop();
@@ -238,9 +258,9 @@ protected:
     virtual void run() = 0;
 };
 
-// Initialize the static factory
+// Initialize the static member with the singleton instance
 template <typename SocketT>
-std::unique_ptr<INetworkSocketFactory> TestServerBase<SocketT>::g_factory = nullptr;
+INetworkSocketFactory* TestServerBase<SocketT>::g_factory = &NetworkFactorySingleton::GetInstance(); // Take address of the returned reference
 
 } // namespace test_utils
 

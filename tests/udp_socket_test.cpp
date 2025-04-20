@@ -16,7 +16,6 @@ public:
     MOCK_METHOD(bool, Bind, (const NetworkAddress& localAddress), (override));
     MOCK_METHOD(NetworkAddress, GetLocalAddress, (), (const, override));
     MOCK_METHOD(bool, IsValid, (), (const, override));
-    MOCK_METHOD(void, SetReuseAddr, (bool enable), (override));
     MOCK_METHOD(int, SendTo, (const std::vector<std::byte>& data, const NetworkAddress& remoteAddress), (override));
     MOCK_METHOD(int, ReceiveFrom, (std::vector<std::byte>& buffer, NetworkAddress& remoteAddress), (override));
     MOCK_METHOD(bool, SetBroadcast, (bool enable), (override));
@@ -24,6 +23,7 @@ public:
     MOCK_METHOD(bool, LeaveMulticastGroup, (const NetworkAddress& groupAddress), (override));
     MOCK_METHOD(bool, WaitForDataWithTimeout, (int timeoutMs), (override));
     MOCK_METHOD(bool, SetSocketOption, (int level, int optionName, const void* optionValue, socklen_t optionLen), (override));
+    MOCK_METHOD(bool, GetSocketOption, (int level, int optionName, void* optionValue, socklen_t* optionLen), (const, override));
 };
 
 // Mock class for UDP socket factory

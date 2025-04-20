@@ -14,18 +14,18 @@
 #include <unordered_map>
 #include <vector>
 
+// Include network first for winsock2.h before windows.h
+#include "network/network.h"
+#include "network/tcp_socket.h"
+#include "network/platform_factory.h"
+#include "network/byte_utils.h"  // Added byte utils header
+
 // Platform-specific headers
 #ifdef _WIN32
 #include <windows.h>
 #else
 #include <signal.h>
 #endif
-
-// Include public network interfaces
-#include "network/network.h"
-#include "network/tcp_socket.h"
-#include "network/platform_factory.h"
-#include "network/byte_utils.h"  // Added byte utils header
 
 // Default port for the chat server
 constexpr int DEFAULT_PORT = 8084;

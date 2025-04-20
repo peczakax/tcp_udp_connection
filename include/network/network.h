@@ -1,6 +1,17 @@
 #ifndef NETWORK_H
 #define NETWORK_H
 
+#ifdef _WIN32
+#include <winsock2.h> // Include for Windows sockets and socklen_t
+#include <ws2tcpip.h> // Include for additional definitions like IPPROTO_IPV6
+#pragma comment(lib, "Ws2_32.lib") // Link against the Winsock library
+#else
+#include <sys/socket.h> // Include for POSIX sockets and socklen_t
+#include <netinet/in.h> // Include for sockaddr_in, etc.
+#include <arpa/inet.h>  // Include for inet_pton, etc.
+#include <unistd.h>     // Include for close()
+#endif
+
 #include <vector>
 #include <string>
 #include <memory>
@@ -28,16 +39,22 @@ public:
     virtual bool IsValid() const = 0;
     virtual bool WaitForDataWithTimeout(int timeoutMs) = 0;
     
-    // Socket options
-    virtual void SetReuseAddr(bool enable) = 0; // Enables/disables SO_REUSEADDR socket option
-    
     // Generic socket option interface - allows setting any socket option
     virtual bool SetSocketOption(int level, int optionName, const void* optionValue, socklen_t optionLen) = 0;
+    // Generic socket option interface - allows getting any socket option
+    virtual bool GetSocketOption(int level, int optionName, void* optionValue, socklen_t* optionLen) const = 0;
     
     // Templated helper for type safety when setting socket options
     template<typename T>
     bool SetSocketOption(int level, int optionName, const T& value) {
         return SetSocketOption(level, optionName, &value, sizeof(T));
+    }
+
+    // Templated helper for type safety when getting socket options
+    template<typename T>
+    bool GetSocketOption(int level, int optionName, T& value) const {
+        socklen_t len = sizeof(T);
+        return GetSocketOption(level, optionName, &value, &len);
     }
 };
 

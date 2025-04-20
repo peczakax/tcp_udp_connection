@@ -38,8 +38,11 @@ public:
     bool Bind(const NetworkAddress& localAddress) override;
     NetworkAddress GetLocalAddress() const override;
     bool IsValid() const override;
-    void SetReuseAddr(bool enable) override;
+    bool WaitForDataWithTimeout(int timeoutMs) override;
+
+    // Generic socket option interface overrides
     bool SetSocketOption(int level, int optionName, const void* optionValue, socklen_t optionLen) override;
+    bool GetSocketOption(int level, int optionName, void* optionValue, socklen_t* optionLen) const override;
 
     // IConnectionOrientedSocket implementation
     bool Connect(const NetworkAddress& remoteAddress) override;
@@ -50,13 +53,11 @@ public:
 
     // ITcpSocket implementation
     bool SetNoDelay(bool enable) override;
-    bool WaitForDataWithTimeout(int timeoutMs) override;
 
 private:
     int m_socketFd;
     bool m_isConnected;
     int m_connectTimeoutMs = -1;
-    bool m_reuseAddr = false;
 };
 
 // Unix implementation of TCP listener
@@ -70,15 +71,17 @@ public:
     bool Bind(const NetworkAddress& localAddress) override;
     NetworkAddress GetLocalAddress() const override;
     bool IsValid() const override;
-    void SetReuseAddr(bool enable) override;
-    bool SetSocketOption(int level, int optionName, const void* optionValue, socklen_t optionLen) override;
     bool WaitForDataWithTimeout(int timeoutMs) override;
+
+    // Generic socket option interface overrides
+    bool SetSocketOption(int level, int optionName, const void* optionValue, socklen_t optionLen) override;
+    bool GetSocketOption(int level, int optionName, void* optionValue, socklen_t* optionLen) const override;
+
     bool Listen(int backlog) override;
     std::unique_ptr<IConnectionOrientedSocket> Accept() override;
 
 private:
     int m_socketFd;
-    bool m_reuseAddr = false;
 };
 
 // Unix implementation of UDP socket
@@ -92,8 +95,11 @@ public:
     bool Bind(const NetworkAddress& localAddress) override;
     NetworkAddress GetLocalAddress() const override;
     bool IsValid() const override;
-    void SetReuseAddr(bool enable) override;
+    bool WaitForDataWithTimeout(int timeoutMs) override;
+
+    // Generic socket option interface overrides
     bool SetSocketOption(int level, int optionName, const void* optionValue, socklen_t optionLen) override;
+    bool GetSocketOption(int level, int optionName, void* optionValue, socklen_t* optionLen) const override;
 
     // IConnectionlessSocket implementation
     int SendTo(const std::vector<std::byte>& data, const NetworkAddress& remoteAddress) override;
@@ -103,11 +109,9 @@ public:
     bool SetBroadcast(bool enable) override;
     bool JoinMulticastGroup(const NetworkAddress& groupAddress) override;
     bool LeaveMulticastGroup(const NetworkAddress& groupAddress) override;
-    bool WaitForDataWithTimeout(int timeoutMs) override;
 
 private:
     int m_socketFd;
-    bool m_reuseAddr = false;
 };
 
 // Unix implementation of the network socket factory

@@ -34,7 +34,6 @@ public:
     bool Bind(const NetworkAddress& localAddress) override;
     NetworkAddress GetLocalAddress() const override;
     bool IsValid() const override;
-    void SetReuseAddr(bool enable) override;
     bool SetSocketOption(int level, int optionName, const void* optionValue, socklen_t optionLen) override;
 
     // IConnectionOrientedSocket implementation
@@ -48,11 +47,13 @@ public:
     bool SetNoDelay(bool enable) override;
     bool WaitForDataWithTimeout(int timeoutMs) override;
 
+    // Make GetSocketOption public to match base class
+    bool GetSocketOption(int level, int optionName, void* optionValue, socklen_t* optionLen) const override;
+
 private:
     SOCKET m_socket;
     bool m_isConnected;
     int m_connectTimeoutMs = -1;
-    bool m_reuseAddr = false;
 };
 
 // Windows implementation of TCP listener
@@ -66,15 +67,16 @@ public:
     bool Bind(const NetworkAddress& localAddress) override;
     NetworkAddress GetLocalAddress() const override;
     bool IsValid() const override;
-    void SetReuseAddr(bool enable) override;
     bool SetSocketOption(int level, int optionName, const void* optionValue, socklen_t optionLen) override;
     bool WaitForDataWithTimeout(int timeoutMs) override;
     bool Listen(int backlog) override;
     std::unique_ptr<IConnectionOrientedSocket> Accept() override;
 
+    // Make GetSocketOption public to match base class
+    bool GetSocketOption(int level, int optionName, void* optionValue, socklen_t* optionLen) const override;
+
 private:
     SOCKET m_socket;
-    bool m_reuseAddr = false;
 };
 
 // Windows implementation of UDP socket
@@ -88,7 +90,6 @@ public:
     bool Bind(const NetworkAddress& localAddress) override;
     NetworkAddress GetLocalAddress() const override;
     bool IsValid() const override;
-    void SetReuseAddr(bool enable) override;
     bool SetSocketOption(int level, int optionName, const void* optionValue, socklen_t optionLen) override;
 
     // IConnectionlessSocket implementation
@@ -101,9 +102,11 @@ public:
     bool LeaveMulticastGroup(const NetworkAddress& groupAddress) override;
     bool WaitForDataWithTimeout(int timeoutMs) override;
 
+    // Make GetSocketOption public to match base class
+    bool GetSocketOption(int level, int optionName, void* optionValue, socklen_t* optionLen) const override;
+
 private:
     SOCKET m_socket;
-    bool m_reuseAddr = false;
 };
 
 // Windows implementation of the network socket factory

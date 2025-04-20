@@ -117,6 +117,9 @@ bool SetReceiveLowWatermark(ISocketBase* socket, int bytes);
  */
 bool SetSendLowWatermark(ISocketBase* socket, int bytes);
 
+// Socket information retrieval functions
+// ------------------------------------
+
 /**
  * Gets error status
  * @param socket The socket to get the option from
@@ -141,8 +144,11 @@ bool GetType(ISocketBase* socket, int& type);
  */
 bool GetAcceptConn(ISocketBase* socket, bool& isListening);
 
+// Platform-specific options
+// ------------------------
+
 /**
- * Binds socket to a specific network interface
+ * Binds socket to a specific network interface (Unix-specific)
  * @param socket The socket to set the option on
  * @param interfaceName Name of the network interface
  * @return Whether the operation was successful
@@ -150,14 +156,12 @@ bool GetAcceptConn(ISocketBase* socket, bool& isListening);
 bool BindToDevice(ISocketBase* socket, const std::string& interfaceName);
 
 /**
- * Sets socket priority
+ * Sets socket priority (Unix-specific)
  * @param socket The socket to set the option on
  * @param priority Priority value
  * @return Whether the operation was successful
  */
 bool SetPriority(ISocketBase* socket, int priority);
-
-// More functions for other socket options can be added here
 
 } // namespace SocketOptions
 

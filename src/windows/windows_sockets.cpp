@@ -62,7 +62,7 @@ namespace WindowsSocketHelpers {
 
 // WindowsTcpSocket Implementation
 WindowsTcpSocket::WindowsTcpSocket() 
-    : m_socket(INVALID_SOCKET), m_isConnected(false) {
+    : m_socket(INVALID_SOCKET), m_isConnected(false), m_connectTimeoutMs(-1) {
     // Ensure Winsock is initialized before creating socket
     static bool winsockInitialized = false;
     if (!winsockInitialized) {
@@ -76,7 +76,7 @@ WindowsTcpSocket::WindowsTcpSocket()
 }
 
 WindowsTcpSocket::WindowsTcpSocket(SOCKET socket) 
-    : m_socket(socket), m_isConnected(true) {
+    : m_socket(socket), m_isConnected(true), m_connectTimeoutMs(-1) {
 }
 
 WindowsTcpSocket::~WindowsTcpSocket() {
@@ -99,7 +99,7 @@ bool WindowsTcpSocket::Bind(const NetworkAddress& localAddress) {
     }
 
     // Apply SO_REUSEADDR option if enabled
-    BOOL reuseAddr = m_reuseAddr ? TRUE : FALSE;
+    BOOL reuseAddr = TRUE;
     if (setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char*>(&reuseAddr), sizeof(reuseAddr)) != 0) {
         int error = WSAGetLastError();
         std::cerr << "setsockopt(SO_REUSEADDR) failed with error: " << error << std::endl;
@@ -270,13 +270,7 @@ bool WindowsTcpSocket::SetNoDelay(bool enable) {
         return false;
 
     DWORD value = enable ? 1 : 0;
-    return (setsockopt(m_socket, IPPROTO_TCP, TCP_NODELAY, 
-                      reinterpret_cast<char*>(&value), sizeof(value)) == 0);
-}
-
-void WindowsTcpSocket::SetReuseAddr(bool enable) {
-    // Store the setting in member variable
-    m_reuseAddr = enable;
+    return SetSocketOption(IPPROTO_TCP, TCP_NODELAY, &value, sizeof(value));
 }
 
 bool WindowsTcpSocket::WaitForDataWithTimeout(int timeoutMs) {
@@ -292,6 +286,14 @@ bool WindowsTcpSocket::SetSocketOption(int level, int optionName, const void* op
 
     return (setsockopt(m_socket, level, optionName, 
                       static_cast<const char*>(optionValue), static_cast<int>(optionLen)) == 0);
+}
+
+bool WindowsTcpSocket::GetSocketOption(int level, int optionName, void* optionValue, socklen_t* optionLen) const {
+    if (m_socket == INVALID_SOCKET)
+        return false;
+
+    return (getsockopt(m_socket, level, optionName,
+                      static_cast<char*>(optionValue), reinterpret_cast<int*>(optionLen)) == 0);
 }
 
 // WindowsTcpListener Implementation
@@ -328,13 +330,11 @@ bool WindowsTcpListener::Bind(const NetworkAddress& localAddress) {
     }
 
     // Apply SO_REUSEADDR option if enabled
-    if (m_reuseAddr) {
-        BOOL reuseAddr = TRUE;
-        if (setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char*>(&reuseAddr), sizeof(reuseAddr)) != 0) {
-            int error = WSAGetLastError();
-            std::cerr << "setsockopt(SO_REUSEADDR) for listener failed with error: " << error << std::endl;
-            // Continue anyway, but log the error
-        }
+    BOOL reuseAddr = TRUE;
+    if (setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char*>(&reuseAddr), sizeof(reuseAddr)) != 0) {
+        int error = WSAGetLastError();
+        std::cerr << "setsockopt(SO_REUSEADDR) for listener failed with error: " << error << std::endl;
+        // Continue anyway, but log the error
     }
 
     sockaddr_in addr = CreateSockAddr(localAddress);
@@ -382,11 +382,6 @@ std::unique_ptr<IConnectionOrientedSocket> WindowsTcpListener::Accept() {
     return std::make_unique<WindowsTcpSocket>(clientSocket);
 }
 
-void WindowsTcpListener::SetReuseAddr(bool enable) {
-    // Store the setting in member variable
-    m_reuseAddr = enable;
-}
-
 bool WindowsTcpListener::WaitForDataWithTimeout(int timeoutMs) {
     return WindowsSocketHelpers::WaitForDataWithTimeout(m_socket, timeoutMs);
 }
@@ -397,6 +392,14 @@ bool WindowsTcpListener::SetSocketOption(int level, int optionName, const void* 
 
     return (setsockopt(m_socket, level, optionName, 
                       static_cast<const char*>(optionValue), static_cast<int>(optionLen)) == 0);
+}
+
+bool WindowsTcpListener::GetSocketOption(int level, int optionName, void* optionValue, socklen_t* optionLen) const {
+    if (m_socket == INVALID_SOCKET)
+        return false;
+
+    return (getsockopt(m_socket, level, optionName,
+                      static_cast<char*>(optionValue), reinterpret_cast<int*>(optionLen)) == 0);
 }
 
 // WindowsUdpSocket Implementation
@@ -433,13 +436,11 @@ bool WindowsUdpSocket::Bind(const NetworkAddress& localAddress) {
     }
 
     // Apply SO_REUSEADDR option if enabled
-    if (m_reuseAddr) {
-        BOOL reuseAddr = TRUE;
-        if (setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char*>(&reuseAddr), sizeof(reuseAddr)) != 0) {
-            int error = WSAGetLastError();
-            std::cerr << "setsockopt(SO_REUSEADDR) for UDP failed with error: " << error << std::endl;
-            // Continue anyway, but log the error
-        }
+    BOOL reuseAddr = TRUE;
+    if (setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char*>(&reuseAddr), sizeof(reuseAddr)) != 0) {
+        int error = WSAGetLastError();
+        std::cerr << "setsockopt(SO_REUSEADDR) for UDP failed with error: " << error << std::endl;
+        // Continue anyway, but log the error
     }
 
     sockaddr_in addr = CreateSockAddr(localAddress);
@@ -506,11 +507,6 @@ bool WindowsUdpSocket::SetBroadcast(bool enable) {
                      reinterpret_cast<char*>(&value), sizeof(value)) == 0);
 }
 
-void WindowsUdpSocket::SetReuseAddr(bool enable) {
-    // Store the setting in member variable
-    m_reuseAddr = enable;
-}
-
 bool WindowsUdpSocket::JoinMulticastGroup(const NetworkAddress& groupAddress) {
     if (m_socket == INVALID_SOCKET)
         return false;
@@ -545,6 +541,14 @@ bool WindowsUdpSocket::SetSocketOption(int level, int optionName, const void* op
 
     return (setsockopt(m_socket, level, optionName, 
                       static_cast<const char*>(optionValue), static_cast<int>(optionLen)) == 0);
+}
+
+bool WindowsUdpSocket::GetSocketOption(int level, int optionName, void* optionValue, socklen_t* optionLen) const {
+    if (m_socket == INVALID_SOCKET)
+        return false;
+
+    return (getsockopt(m_socket, level, optionName,
+                      static_cast<char*>(optionValue), reinterpret_cast<int*>(optionLen)) == 0);
 }
 
 // WindowsNetworkSocketFactory Implementation

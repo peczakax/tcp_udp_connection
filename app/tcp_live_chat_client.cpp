@@ -8,18 +8,18 @@
 #include <vector>
 #include <cstddef>
 
+// Include network first for winsock2.h before windows.h
+#include "network/network.h"
+#include "network/tcp_socket.h"
+#include "network/platform_factory.h"
+#include "network/byte_utils.h"
+
 // Platform-specific headers
 #ifdef _WIN32
 #include <windows.h>
 #else
 #include <signal.h>
 #endif
-
-// Replace TcpClient with public network interfaces
-#include "network/network.h"
-#include "network/tcp_socket.h"
-#include "network/platform_factory.h"
-#include "network/byte_utils.h"
 
 // Default server settings
 constexpr int DEFAULT_PORT = 8084;
