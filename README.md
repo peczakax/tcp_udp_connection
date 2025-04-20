@@ -8,11 +8,12 @@ A cross-platform C++ networking library that provides abstractions for TCP and U
 - Platform-specific implementations for Windows and Unix
 - Factory pattern to create appropriate socket implementations
 - Simple API for network communications
+- Specialized timeout functionality for non-blocking operations
+- Extensive socket options configuration
+- Utility functions for byte conversions
 - Comprehensive test suite using Google Test framework
 - Integration tests for UDP broadcast functionality
-- Specialized timeout functionality for non-blocking operations
-- Live chat application examples using TCP and UDP sockets
-- Utility functions for byte conversions
+- Examples using TCP and UDP sockets
 
 ## Requirements
 
@@ -20,6 +21,7 @@ A cross-platform C++ networking library that provides abstractions for TCP and U
 - CMake 3.14 or higher
 - For Windows builds: Windows SDK
 - For Unix builds: POSIX socket libraries
+- Google Test framework for running tests
 
 ## Building the Project
 
@@ -152,6 +154,8 @@ tcp_udp_connection/
 │   └── Test suite
 │   ├── CMakeLists.txt             
 │   │   └── Test build configuration
+│   ├── socket_options_test.cpp    
+│   │   └── Socket options functionality tests
 │   ├── tcp_client_server_connection_test.cpp 
 │   │   └── TCP client/server connection tests
 │   ├── tcp_socket_test.cpp        
@@ -208,6 +212,7 @@ Unit tests verify the correctness of individual components using mock objects:
 - UDP socket functionality (`udp_socket_test.cpp`)
 - TCP timeout functionality (`tcp_timeout_test.cpp`) 
 - UDP timeout functionality (`udp_timeout_test.cpp`)
+- Socket options functionality (`socket_options_test.cpp`)
 
 ### Integration Tests
 
@@ -215,6 +220,16 @@ Integration tests verify the interaction between components using actual network
 - TCP client-server communication (`tcp_client_server_connection_test.cpp`)
 - UDP client-server communication (`udp_client_server_connection_test.cpp`)
 - UDP broadcast functionality (`udp_broadcast_test.cpp`) - tests broadcasting to multiple receivers
+
+### Test Utilities
+
+The test suite includes utility classes and functions to simplify writing tests:
+- Mock socket implementations for unit testing
+- Test fixtures for common setup and teardown operations
+- Helper methods for testing socket options with different data types
+- Cross-platform testing helpers for both Windows and Unix environments
+- Consistent timeout constants defined in `test_utils.h`
+- TestServerBase template class for server testing infrastructure
 
 You can run specific test categories using the gtest filter:
 
@@ -227,7 +242,43 @@ You can run specific test categories using the gtest filter:
 
 # Run only TCP client-server tests
 ./tests/network_tests --gtest_filter="TcpClientServerConnectionTest.*"
+
+# Run socket options tests
+./tests/network_tests --gtest_filter="SocketOptionsTest.*"
 ```
+
+## Socket Options Support
+
+The library provides comprehensive socket configuration through the `SocketOptions` class:
+
+```cpp
+// Example of configuring socket options
+auto socket = factory->CreateTcpSocket();
+
+// Configure various socket options
+SocketOptions::SetReuseAddr(socket.get(), true);
+SocketOptions::SetReceiveTimeout(socket.get(), std::chrono::milliseconds(1000));
+SocketOptions::SetSendBufferSize(socket.get(), 8192);
+SocketOptions::SetKeepAlive(socket.get(), true);
+SocketOptions::SetLinger(socket.get(), true, 5); // Enable linger with 5 second timeout
+```
+
+Available socket options include:
+- Reuse address and port
+- Broadcast permission
+- Keep-alive settings
+- Connection linger control
+- Buffer size configuration
+- Send/receive timeouts
+- Routing options
+- Out-of-band data handling
+- Interface binding (Unix-specific)
+- Socket priority settings (Unix-specific)
+
+The SocketOptions implementation accounts for platform differences, providing:
+- Proper timeval/DWORD conversion for timeout values between Windows and Unix
+- Platform-specific handling of options like SO_REUSEPORT (combined with SO_REUSEADDR on Windows)
+- Graceful fallbacks for Unix-specific options like SO_BINDTODEVICE and SO_PRIORITY when used on Windows
 
 ## Interface Design
 
@@ -258,6 +309,14 @@ public:
     virtual NetworkAddress GetLocalAddress() const = 0;
     virtual bool IsValid() const = 0;
     virtual bool WaitForDataWithTimeout(int timeoutMs) = 0;
+    virtual bool SetSocketOption(int level, int optionName, const void* optionValue, socklen_t optionLen) = 0;
+    virtual bool GetSocketOption(int level, int optionName, void* optionValue, socklen_t* optionLen) const = 0;
+
+    template<typename T>
+    bool SetSocketOption(int level, int optionName, const T& value;
+
+    template<typename T>
+    bool GetSocketOption(int level, int optionName, T& value) const;
 };
 ```
 
@@ -463,7 +522,8 @@ try {
         // Consider using socket->SetConnectTimeout() if needed
     } else {
         // Connection successful
-        std::vector<std::byte> data = {std::byte{'T'}, std::byte{'e'}, std::byte{'s'}, std::byte{'t'}};
+        std::string message = "Test";
+        std::vector<std::byte> data = NetworkUtils::StringToBytes(message);
         int bytesSent = socket->Send(data);
         if (bytesSent < 0) {
              std::cerr << "Failed to send data." << std::endl;
@@ -595,6 +655,8 @@ if (socket->WaitForDataWithTimeout(500)) { // Wait for 500ms
 }
 ```
 
+The library includes specific timeout-related tests for both TCP and UDP implementations, validating edge cases such as zero timeouts, very long timeouts, and timeout behavior with invalid sockets.
+
 ### Byte Conversion Utilities
 
 The library provides utility functions for easy conversion between strings and byte vectors:
@@ -607,6 +669,53 @@ std::vector<std::byte> bytes = NetworkUtils::StringToBytes(message);
 // Converting received bytes back to a string
 std::vector<std::byte> receivedBytes = /* ... */;
 std::string receivedMessage = NetworkUtils::BytesToString(receivedBytes);
+```
+
+### Configurability through Socket Options
+
+The library provides extensive socket option configuration through the `SocketOptions` class:
+
+```cpp
+// Configure socket for better performance
+SocketOptions::SetNoDelay(tcpSocket.get(), true);  // Disable Nagle's algorithm
+SocketOptions::SetReuseAddr(socket.get(), true);   // Allow port reuse
+SocketOptions::SetDontRoute(socket.get(), true);   // Use direct routing
+
+// Configure timeout behavior
+SocketOptions::SetReceiveTimeout(socket.get(), std::chrono::milliseconds(500));
+SocketOptions::SetSendTimeout(socket.get(), std::chrono::milliseconds(1000));
+
+// Configure buffer sizes
+SocketOptions::SetReceiveBufferSize(socket.get(), 16384);  // 16KB receive buffer
+SocketOptions::SetSendBufferSize(socket.get(), 8192);      // 8KB send buffer
+
+// Configure connection teardown behavior
+SocketOptions::SetLinger(socket.get(), true, 3);  // Wait up to 3 seconds on close
+```
+
+The socket options implementation includes thorough tests that verify:
+- Boolean options like SetReuseAddr, SetBroadcast
+- Integer options like SetReceiveBufferSize, SetSendBufferSize
+- Timeout options with proper struct timeval handling on Unix and DWORD on Windows
+- Platform-specific options like BindToDevice and SetPriority with appropriate handling
+- Options that use complex structs like linger
+
+### Platform-specific Optimizations
+
+The library automatically applies the appropriate system calls on each platform:
+
+```cpp
+// This code works the same on both Windows and Unix systems
+auto socket = factory->CreateUdpSocket();
+
+// Enable broadcasting - platform-specific details are handled internally
+SocketOptions::SetBroadcast(socket.get(), true);
+
+// Bind to a specific network interface on Unix systems (ignored on Windows)
+SocketOptions::BindToDevice(socket.get(), "eth0");
+
+// Set socket priority on Unix systems (ignored on Windows)
+SocketOptions::SetPriority(socket.get(), 6);
 ```
 
 ### Live Chat Applications
