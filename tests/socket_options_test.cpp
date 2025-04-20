@@ -1,4 +1,3 @@
-\
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
 #include "network/socket_options.h"
@@ -53,364 +52,254 @@ public:
 class SocketOptionsTest : public ::testing::Test {
 protected:
     MockSocket mockSocket;
+
+    // Helper method for testing boolean socket options
+    void TestBooleanOption(
+        const std::function<bool(ISocketBase*, bool)>& optionSetter,
+        int socketLevel,
+        int optionName) 
+    {
+        // Test enabling
+        EXPECT_CALL(mockSocket, SetSocketOption(socketLevel, optionName, NotNull(), sizeof(int)))
+            .WillOnce(DoAll(
+                WithArg<2>([](const void* val) { EXPECT_EQ(*static_cast<const int*>(val), 1); }),
+                Return(true)
+            ));
+        EXPECT_TRUE(optionSetter(&mockSocket, true));
+
+        // Test disabling
+        EXPECT_CALL(mockSocket, SetSocketOption(socketLevel, optionName, NotNull(), sizeof(int)))
+            .WillOnce(DoAll(
+                WithArg<2>([](const void* val) { EXPECT_EQ(*static_cast<const int*>(val), 0); }),
+                Return(true)
+            ));
+        EXPECT_TRUE(optionSetter(&mockSocket, false));
+
+        // Test null socket
+        EXPECT_FALSE(optionSetter(nullptr, true));
+    }
+
+    // Helper for testing integer-value socket options
+    void TestIntOption(
+        const std::function<bool(ISocketBase*, int)>& optionSetter,
+        int socketLevel,
+        int optionName,
+        int value) 
+    {
+        EXPECT_CALL(mockSocket, SetSocketOption(socketLevel, optionName, NotNull(), sizeof(int)))
+            .WillOnce(DoAll(
+                WithArg<2>([value](const void* val) { EXPECT_EQ(*static_cast<const int*>(val), value); }),
+                Return(true)
+            ));
+        EXPECT_TRUE(optionSetter(&mockSocket, value));
+
+        EXPECT_FALSE(optionSetter(nullptr, value));
+    }
+    
+    // Helper for testing get socket option methods
+    template<typename T>
+    void TestGetOption(
+        bool (*optionGetter)(ISocketBase*, T&),
+        int socketLevel, 
+        int optionName,
+        T expectedValue)
+    {
+        socklen_t expectedLen = sizeof(T);
+        // Special handling for booleans - on the socket level, bools are represented as ints
+        if constexpr (std::is_same_v<T, bool>) {
+            expectedLen = sizeof(int);
+            
+            EXPECT_CALL(mockSocket, GetSocketOption(socketLevel, optionName, NotNull(), Pointee(expectedLen)))
+                .WillOnce(DoAll(
+                    WithArg<2>([expectedValue](void* val) { 
+                        // For boolean options, the value is stored as an int (0 or 1)
+                        *static_cast<int*>(val) = expectedValue ? 1 : 0;
+                    }),
+                    WithArg<3>([expectedLen](socklen_t* len) {
+                        *len = expectedLen;
+                    }),
+                    Return(true)
+                ));
+        } else {
+            EXPECT_CALL(mockSocket, GetSocketOption(socketLevel, optionName, NotNull(), Pointee(expectedLen)))
+                .WillOnce(DoAll(
+                    WithArg<2>([expectedValue](void* val) { 
+                        *static_cast<T*>(val) = expectedValue; 
+                    }),
+                    WithArg<3>([expectedLen](socklen_t* len) {
+                        *len = expectedLen;
+                    }),
+                    Return(true)
+                ));
+        }
+
+        T actualValue{};
+        EXPECT_TRUE(optionGetter(&mockSocket, actualValue));
+        EXPECT_EQ(actualValue, expectedValue);
+
+        EXPECT_FALSE(optionGetter(nullptr, actualValue));
+    }
+    
+    // Helper for testing timeout options
+    void TestTimeoutOption(
+        const std::function<bool(ISocketBase*, const std::chrono::milliseconds&)>& optionSetter,
+        int socketLevel,
+        int optionName,
+        std::chrono::milliseconds timeout)
+    {
+        #ifdef _WIN32
+        DWORD expected_timeout_ms = static_cast<DWORD>(timeout.count());
+        EXPECT_CALL(mockSocket, SetSocketOption(socketLevel, optionName, NotNull(), sizeof(DWORD)))
+            .WillOnce(DoAll(
+                WithArg<2>([expected_timeout_ms](const void* val) {
+                    EXPECT_EQ(*static_cast<const DWORD*>(val), expected_timeout_ms);
+                }),
+                Return(true)
+            ));
+        #else
+        struct timeval expected_tv;
+        expected_tv.tv_sec = static_cast<time_t>(timeout.count() / 1000);
+        expected_tv.tv_usec = static_cast<suseconds_t>((timeout.count() % 1000) * 1000);
+        EXPECT_CALL(mockSocket, SetSocketOption(socketLevel, optionName, NotNull(), sizeof(struct timeval)))
+            .WillOnce(DoAll(
+                WithArg<2>([expected_tv](const void* val) {
+                    const struct timeval* tv = static_cast<const struct timeval*>(val);
+                    EXPECT_EQ(tv->tv_sec, expected_tv.tv_sec);
+                    EXPECT_EQ(tv->tv_usec, expected_tv.tv_usec);
+                }),
+                Return(true)
+            ));
+        #endif
+        EXPECT_TRUE(optionSetter(&mockSocket, timeout));
+
+        EXPECT_FALSE(optionSetter(nullptr, timeout));
+    }
+
+    // Helper method for testing linger option
+    void TestLingerOption(bool onoff, int seconds) {
+        #ifdef _WIN32
+        EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_LINGER, NotNull(), sizeof(LINGER)))
+            .WillOnce(DoAll(
+                WithArg<2>([onoff, seconds](const void* val) {
+                    const LINGER* lingerOpt = static_cast<const LINGER*>(val);
+                    EXPECT_EQ(lingerOpt->l_onoff, onoff ? 1 : 0);
+                    if (onoff) {
+                        EXPECT_EQ(lingerOpt->l_linger, seconds);
+                    } else {
+                        EXPECT_EQ(lingerOpt->l_linger, 0);
+                    }
+                }),
+                Return(true)
+            ));
+        #else
+        EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_LINGER, NotNull(), sizeof(struct linger)))
+            .WillOnce(DoAll(
+                WithArg<2>([onoff, seconds](const void* val) {
+                    const struct linger* lingerOpt = static_cast<const struct linger*>(val);
+                    EXPECT_EQ(lingerOpt->l_onoff, onoff ? 1 : 0);
+                    if (onoff) {
+                        EXPECT_EQ(lingerOpt->l_linger, seconds);
+                    } else {
+                        EXPECT_EQ(lingerOpt->l_linger, 0);
+                    }
+                }),
+                Return(true)
+            ));
+        #endif
+        EXPECT_TRUE(SocketOptions::SetLinger(&mockSocket, onoff, onoff ? seconds : 0));
+    }
 };
 
 // --- Test Cases ---
 
 TEST_F(SocketOptionsTest, SetReuseAddr) {
-    // Test enabling
-    EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_REUSEADDR, NotNull(), sizeof(int)))
-        .WillOnce(DoAll(
-            // Check that the value passed is 1 (true)
-            WithArg<2>([](const void* val) { EXPECT_EQ(*static_cast<const int*>(val), 1); }),
-            Return(true)
-        ));
-    EXPECT_TRUE(SocketOptions::SetReuseAddr(&mockSocket, true));
-
-    // Test disabling
-    EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_REUSEADDR, NotNull(), sizeof(int)))
-        .WillOnce(DoAll(
-            // Check that the value passed is 0 (false)
-            WithArg<2>([](const void* val) { EXPECT_EQ(*static_cast<const int*>(val), 0); }),
-            Return(true)
-        ));
-    EXPECT_TRUE(SocketOptions::SetReuseAddr(&mockSocket, false));
-
-    // Test null socket
-    EXPECT_FALSE(SocketOptions::SetReuseAddr(nullptr, true));
+    TestBooleanOption(SocketOptions::SetReuseAddr, SOL_SOCKET, SO_REUSEADDR);
 }
 
 TEST_F(SocketOptionsTest, SetReusePort) {
-    // Test enabling
     #ifdef _WIN32 // On Windows, SO_REUSEPORT maps to SO_REUSEADDR
-    EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_REUSEADDR, NotNull(), sizeof(int)))
-        .WillOnce(DoAll(
-            WithArg<2>([](const void* val) { EXPECT_EQ(*static_cast<const int*>(val), 1); }),
-            Return(true)
-        ));
+    TestBooleanOption(SocketOptions::SetReusePort, SOL_SOCKET, SO_REUSEADDR);
     #else
-    EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_REUSEPORT, NotNull(), sizeof(int)))
-        .WillOnce(DoAll(
-            WithArg<2>([](const void* val) { EXPECT_EQ(*static_cast<const int*>(val), 1); }),
-            Return(true)
-        ));
+    TestBooleanOption(SocketOptions::SetReusePort, SOL_SOCKET, SO_REUSEPORT);
     #endif
-    EXPECT_TRUE(SocketOptions::SetReusePort(&mockSocket, true));
-
-    // Test disabling
-    #ifdef _WIN32
-    EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_REUSEADDR, NotNull(), sizeof(int)))
-        .WillOnce(DoAll(
-            WithArg<2>([](const void* val) { EXPECT_EQ(*static_cast<const int*>(val), 0); }),
-            Return(true)
-        ));
-    #else
-    EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_REUSEPORT, NotNull(), sizeof(int)))
-        .WillOnce(DoAll(
-            WithArg<2>([](const void* val) { EXPECT_EQ(*static_cast<const int*>(val), 0); }),
-            Return(true)
-        ));
-    #endif
-    EXPECT_TRUE(SocketOptions::SetReusePort(&mockSocket, false));
-
-    // Test null socket
-    EXPECT_FALSE(SocketOptions::SetReusePort(nullptr, true));
 }
 
 TEST_F(SocketOptionsTest, SetBroadcast) {
-    EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_BROADCAST, NotNull(), sizeof(int)))
-        .WillOnce(DoAll(
-            WithArg<2>([](const void* val) { EXPECT_EQ(*static_cast<const int*>(val), 1); }),
-            Return(true)
-        ));
-    EXPECT_TRUE(SocketOptions::SetBroadcast(&mockSocket, true));
-
-    EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_BROADCAST, NotNull(), sizeof(int)))
-        .WillOnce(DoAll(
-            WithArg<2>([](const void* val) { EXPECT_EQ(*static_cast<const int*>(val), 0); }),
-            Return(true)
-        ));
-    EXPECT_TRUE(SocketOptions::SetBroadcast(&mockSocket, false));
-
-    EXPECT_FALSE(SocketOptions::SetBroadcast(nullptr, true));
+    TestBooleanOption(SocketOptions::SetBroadcast, SOL_SOCKET, SO_BROADCAST);
 }
 
 TEST_F(SocketOptionsTest, SetKeepAlive) {
-     EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_KEEPALIVE, NotNull(), sizeof(int)))
-        .WillOnce(DoAll(
-            WithArg<2>([](const void* val) { EXPECT_EQ(*static_cast<const int*>(val), 1); }),
-            Return(true)
-        ));
-    EXPECT_TRUE(SocketOptions::SetKeepAlive(&mockSocket, true));
-
-    EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_KEEPALIVE, NotNull(), sizeof(int)))
-        .WillOnce(DoAll(
-            WithArg<2>([](const void* val) { EXPECT_EQ(*static_cast<const int*>(val), 0); }),
-            Return(true)
-        ));
-    EXPECT_TRUE(SocketOptions::SetKeepAlive(&mockSocket, false));
-
-    EXPECT_FALSE(SocketOptions::SetKeepAlive(nullptr, true));
+    TestBooleanOption(SocketOptions::SetKeepAlive, SOL_SOCKET, SO_KEEPALIVE);
 }
 
 TEST_F(SocketOptionsTest, SetLinger) {
     int linger_seconds = 5;
-    #ifdef _WIN32
-    EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_LINGER, NotNull(), sizeof(LINGER)))
-        .WillOnce(DoAll(
-            WithArg<2>([linger_seconds](const void* val) {
-                const LINGER* lingerOpt = static_cast<const LINGER*>(val);
-                EXPECT_EQ(lingerOpt->l_onoff, 1);
-                EXPECT_EQ(lingerOpt->l_linger, linger_seconds);
-            }),
-            Return(true)
-        ));
-    #else
-    EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_LINGER, NotNull(), sizeof(struct linger)))
-        .WillOnce(DoAll(
-            WithArg<2>([linger_seconds](const void* val) {
-                const struct linger* lingerOpt = static_cast<const struct linger*>(val);
-                EXPECT_EQ(lingerOpt->l_onoff, 1);
-                EXPECT_EQ(lingerOpt->l_linger, linger_seconds);
-            }),
-            Return(true)
-        ));
-    #endif
-    EXPECT_TRUE(SocketOptions::SetLinger(&mockSocket, true, linger_seconds));
-
-    #ifdef _WIN32
-    EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_LINGER, NotNull(), sizeof(LINGER)))
-        .WillOnce(DoAll(
-            WithArg<2>([](const void* val) {
-                const LINGER* lingerOpt = static_cast<const LINGER*>(val);
-                EXPECT_EQ(lingerOpt->l_onoff, 0);
-                // l_linger value doesn't matter if l_onoff is 0, but check it anyway (should be passed as 0)
-                EXPECT_EQ(lingerOpt->l_linger, 0);
-            }),
-            Return(true)
-        ));
-    #else
-     EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_LINGER, NotNull(), sizeof(struct linger)))
-        .WillOnce(DoAll(
-            WithArg<2>([](const void* val) {
-                const struct linger* lingerOpt = static_cast<const struct linger*>(val);
-                EXPECT_EQ(lingerOpt->l_onoff, 0);
-                 // l_linger value doesn't matter if l_onoff is 0, but check it anyway (should be passed as 0)
-                EXPECT_EQ(lingerOpt->l_linger, 0);
-            }),
-            Return(true)
-        ));
-    #endif
-    EXPECT_TRUE(SocketOptions::SetLinger(&mockSocket, false, 0)); // Seconds don't matter if off
+    TestLingerOption(true, linger_seconds);
+    TestLingerOption(false, 0); // Seconds don't matter if off
 
     EXPECT_FALSE(SocketOptions::SetLinger(nullptr, true, 5));
 }
 
 TEST_F(SocketOptionsTest, SetReceiveBufferSize) {
     int size = 8192;
-    EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_RCVBUF, NotNull(), sizeof(int)))
-        .WillOnce(DoAll(
-            WithArg<2>([size](const void* val) { EXPECT_EQ(*static_cast<const int*>(val), size); }),
-            Return(true)
-        ));
-    EXPECT_TRUE(SocketOptions::SetReceiveBufferSize(&mockSocket, size));
-
-    EXPECT_FALSE(SocketOptions::SetReceiveBufferSize(nullptr, size));
+    TestIntOption(SocketOptions::SetReceiveBufferSize, SOL_SOCKET, SO_RCVBUF, size);
 }
 
 TEST_F(SocketOptionsTest, SetSendBufferSize) {
     int size = 8192;
-    EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_SNDBUF, NotNull(), sizeof(int)))
-        .WillOnce(DoAll(
-            WithArg<2>([size](const void* val) { EXPECT_EQ(*static_cast<const int*>(val), size); }),
-            Return(true)
-        ));
-    EXPECT_TRUE(SocketOptions::SetSendBufferSize(&mockSocket, size));
-
-    EXPECT_FALSE(SocketOptions::SetSendBufferSize(nullptr, size));
+    TestIntOption(SocketOptions::SetSendBufferSize, SOL_SOCKET, SO_SNDBUF, size);
 }
 
 TEST_F(SocketOptionsTest, SetReceiveTimeout) {
     auto timeout = std::chrono::milliseconds(1500); // 1.5 seconds
-    #ifdef _WIN32
-    DWORD expected_timeout_ms = 1500;
-    EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_RCVTIMEO, NotNull(), sizeof(DWORD)))
-        .WillOnce(DoAll(
-            WithArg<2>([expected_timeout_ms](const void* val) {
-                EXPECT_EQ(*static_cast<const DWORD*>(val), expected_timeout_ms);
-            }),
-            Return(true)
-        ));
-    #else
-    struct timeval expected_tv;
-    expected_tv.tv_sec = 1;
-    expected_tv.tv_usec = 500000;
-    EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_RCVTIMEO, NotNull(), sizeof(struct timeval)))
-        .WillOnce(DoAll(
-            WithArg<2>([expected_tv](const void* val) {
-                const struct timeval* tv = static_cast<const struct timeval*>(val);
-                EXPECT_EQ(tv->tv_sec, expected_tv.tv_sec);
-                EXPECT_EQ(tv->tv_usec, expected_tv.tv_usec);
-            }),
-            Return(true)
-        ));
-    #endif
-    EXPECT_TRUE(SocketOptions::SetReceiveTimeout(&mockSocket, timeout));
-
-    EXPECT_FALSE(SocketOptions::SetReceiveTimeout(nullptr, timeout));
+    TestTimeoutOption(SocketOptions::SetReceiveTimeout, SOL_SOCKET, SO_RCVTIMEO, timeout);
 }
 
 TEST_F(SocketOptionsTest, SetSendTimeout) {
     auto timeout = std::chrono::milliseconds(2345); // 2.345 seconds
-    #ifdef _WIN32
-    DWORD expected_timeout_ms = 2345;
-    EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_SNDTIMEO, NotNull(), sizeof(DWORD)))
-        .WillOnce(DoAll(
-            WithArg<2>([expected_timeout_ms](const void* val) {
-                EXPECT_EQ(*static_cast<const DWORD*>(val), expected_timeout_ms);
-            }),
-            Return(true)
-        ));
-    #else
-    struct timeval expected_tv;
-    expected_tv.tv_sec = 2;
-    expected_tv.tv_usec = 345000;
-     EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_SNDTIMEO, NotNull(), sizeof(struct timeval)))
-        .WillOnce(DoAll(
-            WithArg<2>([expected_tv](const void* val) {
-                const struct timeval* tv = static_cast<const struct timeval*>(val);
-                EXPECT_EQ(tv->tv_sec, expected_tv.tv_sec);
-                EXPECT_EQ(tv->tv_usec, expected_tv.tv_usec);
-            }),
-            Return(true)
-        ));
-    #endif
-    EXPECT_TRUE(SocketOptions::SetSendTimeout(&mockSocket, timeout));
-
-    EXPECT_FALSE(SocketOptions::SetSendTimeout(nullptr, timeout));
+    TestTimeoutOption(SocketOptions::SetSendTimeout, SOL_SOCKET, SO_SNDTIMEO, timeout);
 }
 
 TEST_F(SocketOptionsTest, SetDontRoute) {
-    EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_DONTROUTE, NotNull(), sizeof(int)))
-        .WillOnce(DoAll(
-            WithArg<2>([](const void* val) { EXPECT_EQ(*static_cast<const int*>(val), 1); }),
-            Return(true)
-        ));
-    EXPECT_TRUE(SocketOptions::SetDontRoute(&mockSocket, true));
-
-    EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_DONTROUTE, NotNull(), sizeof(int)))
-        .WillOnce(DoAll(
-            WithArg<2>([](const void* val) { EXPECT_EQ(*static_cast<const int*>(val), 0); }),
-            Return(true)
-        ));
-    EXPECT_TRUE(SocketOptions::SetDontRoute(&mockSocket, false));
-
-    EXPECT_FALSE(SocketOptions::SetDontRoute(nullptr, true));
+    TestBooleanOption(SocketOptions::SetDontRoute, SOL_SOCKET, SO_DONTROUTE);
 }
 
 TEST_F(SocketOptionsTest, SetOobInline) {
-    EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_OOBINLINE, NotNull(), sizeof(int)))
-        .WillOnce(DoAll(
-            WithArg<2>([](const void* val) { EXPECT_EQ(*static_cast<const int*>(val), 1); }),
-            Return(true)
-        ));
-    EXPECT_TRUE(SocketOptions::SetOobInline(&mockSocket, true));
-
-    EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_OOBINLINE, NotNull(), sizeof(int)))
-        .WillOnce(DoAll(
-            WithArg<2>([](const void* val) { EXPECT_EQ(*static_cast<const int*>(val), 0); }),
-            Return(true)
-        ));
-    EXPECT_TRUE(SocketOptions::SetOobInline(&mockSocket, false));
-
-    EXPECT_FALSE(SocketOptions::SetOobInline(nullptr, true));
+    TestBooleanOption(SocketOptions::SetOobInline, SOL_SOCKET, SO_OOBINLINE);
 }
 
 TEST_F(SocketOptionsTest, SetReceiveLowWatermark) {
     int bytes = 1024;
-    EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_RCVLOWAT, NotNull(), sizeof(int)))
-        .WillOnce(DoAll(
-            WithArg<2>([bytes](const void* val) { EXPECT_EQ(*static_cast<const int*>(val), bytes); }),
-            Return(true)
-        ));
-    EXPECT_TRUE(SocketOptions::SetReceiveLowWatermark(&mockSocket, bytes));
-
-    EXPECT_FALSE(SocketOptions::SetReceiveLowWatermark(nullptr, bytes));
+    TestIntOption(SocketOptions::SetReceiveLowWatermark, SOL_SOCKET, SO_RCVLOWAT, bytes);
 }
 
 TEST_F(SocketOptionsTest, SetSendLowWatermark) {
     int bytes = 2048;
-    EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_SNDLOWAT, NotNull(), sizeof(int)))
-        .WillOnce(DoAll(
-            WithArg<2>([bytes](const void* val) { EXPECT_EQ(*static_cast<const int*>(val), bytes); }),
-            Return(true)
-        ));
-    EXPECT_TRUE(SocketOptions::SetSendLowWatermark(&mockSocket, bytes));
-
-    EXPECT_FALSE(SocketOptions::SetSendLowWatermark(nullptr, bytes));
+    TestIntOption(SocketOptions::SetSendLowWatermark, SOL_SOCKET, SO_SNDLOWAT, bytes);
 }
 
 TEST_F(SocketOptionsTest, GetError) {
     int expectedError = 5; // Example error code
-    socklen_t expectedLen = sizeof(int);
-
-    EXPECT_CALL(mockSocket, GetSocketOption(SOL_SOCKET, SO_ERROR, NotNull(), Pointee(expectedLen)))
-        .WillOnce(DoAll(
-            // Use a lambda to safely copy the value into the void* buffer
-            WithArg<2>([expectedError](void* val) { 
-                *static_cast<int*>(val) = expectedError; 
-            }),
-            // Use a lambda to safely set the length
-            WithArg<3>([expectedLen](socklen_t* len) {
-                *len = expectedLen;
-            }),
-            Return(true)
-        ));
-
-    int actualError = 0;
-    EXPECT_TRUE(SocketOptions::GetError(&mockSocket, actualError));
-    EXPECT_EQ(actualError, expectedError);
-
-    EXPECT_FALSE(SocketOptions::GetError(nullptr, actualError));
+    TestGetOption(SocketOptions::GetError, SOL_SOCKET, SO_ERROR, expectedError);
 }
 
 TEST_F(SocketOptionsTest, GetType) {
     int expectedType = SOCK_STREAM; // Example socket type
-    socklen_t expectedLen = sizeof(int);
-
-    EXPECT_CALL(mockSocket, GetSocketOption(SOL_SOCKET, SO_TYPE, NotNull(), Pointee(expectedLen)))
-        .WillOnce(DoAll(
-            // Use a lambda to safely copy the value into the void* buffer
-            WithArg<2>([expectedType](void* val) { 
-                *static_cast<int*>(val) = expectedType; 
-            }),
-             // Use a lambda to safely set the length
-            WithArg<3>([expectedLen](socklen_t* len) {
-                *len = expectedLen;
-            }),
-            Return(true)
-        ));
-
-    int actualType = 0;
-    EXPECT_TRUE(SocketOptions::GetType(&mockSocket, actualType));
-    EXPECT_EQ(actualType, expectedType);
-
-    EXPECT_FALSE(SocketOptions::GetType(nullptr, actualType));
+    TestGetOption(SocketOptions::GetType, SOL_SOCKET, SO_TYPE, expectedType);
 }
 
 TEST_F(SocketOptionsTest, GetAcceptConn) {
+    // Test when socket is in listening state
     int getsockopt_value_true = 1;
-    int getsockopt_value_false = 0;
     socklen_t expectedLen = sizeof(int);
 
-    // Test when listening (true)
-    EXPECT_CALL(mockSocket, GetSocketOption(SOL_SOCKET, SO_ACCEPTCONN, NotNull(), Pointee(expectedLen)))
+    EXPECT_CALL(mockSocket, GetSocketOption(SOL_SOCKET, SO_ACCEPTCONN, NotNull(), _))
         .WillOnce(DoAll(
-             // Use a lambda to safely copy the value into the void* buffer
+            // Use a lambda to safely copy the value into the void* buffer
             WithArg<2>([getsockopt_value_true](void* val) { 
                 *static_cast<int*>(val) = getsockopt_value_true; 
             }),
-             // Use a lambda to safely set the length
+            // Use a lambda to safely set the length
             WithArg<3>([expectedLen](socklen_t* len) {
                 *len = expectedLen;
             }),
@@ -421,14 +310,14 @@ TEST_F(SocketOptionsTest, GetAcceptConn) {
     EXPECT_TRUE(SocketOptions::GetAcceptConn(&mockSocket, isListening));
     EXPECT_TRUE(isListening);
 
-    // Test when not listening (false)
-    EXPECT_CALL(mockSocket, GetSocketOption(SOL_SOCKET, SO_ACCEPTCONN, NotNull(), Pointee(expectedLen)))
+    // Test when socket is not in listening state
+    int getsockopt_value_false = 0;
+    
+    EXPECT_CALL(mockSocket, GetSocketOption(SOL_SOCKET, SO_ACCEPTCONN, NotNull(), _))
         .WillOnce(DoAll(
-             // Use a lambda to safely copy the value into the void* buffer
             WithArg<2>([getsockopt_value_false](void* val) { 
                 *static_cast<int*>(val) = getsockopt_value_false; 
             }),
-             // Use a lambda to safely set the length
             WithArg<3>([expectedLen](socklen_t* len) {
                 *len = expectedLen;
             }),
