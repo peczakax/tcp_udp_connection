@@ -7,8 +7,8 @@
 int main() {
     std::cout << "Running TCP server example..." << std::endl;
 
-    auto factory = INetworkSocketFactory::CreatePlatformFactory();
-    auto listener = factory->CreateTcpListener();
+    auto& factory = NetworkFactorySingleton::GetInstance();
+    auto listener = factory.CreateTcpListener();
     
     if (!listener->Bind(NetworkAddress("0.0.0.0", 8080))) {
         std::cout << "Failed to bind to port 8080" << std::endl;

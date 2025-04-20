@@ -115,9 +115,8 @@ public:
             std::cout << "Initializing connection to chat server at " << serverAddress.ipAddress 
                       << ":" << serverAddress.port << "..." << std::endl;
             
-            // Create socket using platform factory
-            auto factory = INetworkSocketFactory::CreatePlatformFactory();
-            socket = factory->CreateUdpSocket();
+            auto& factory = NetworkFactorySingleton::GetInstance();
+            socket = factory.CreateUdpSocket();
             
             if (!socket || !socket->IsValid()) {
                 throw std::runtime_error("Failed to create UDP socket");

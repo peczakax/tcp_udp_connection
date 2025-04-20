@@ -395,14 +395,11 @@ public:
     void start() {
         std::cout << "Starting TCP Chat Server on port " << serverAddress.port << "..." << std::endl;
         
-        // Create the platform-specific socket factory
-        auto factory = INetworkSocketFactory::CreatePlatformFactory();
-        if (!factory) {
-            throw std::runtime_error("Failed to create platform socket factory");
-        }
+        // Use the NetworkFactorySingleton to get the factory instance
+        auto& factory = NetworkFactorySingleton::GetInstance();
         
         // Create the TCP listener
-        server = factory->CreateTcpListener();
+        server = factory.CreateTcpListener();
         if (!server) {
             throw std::runtime_error("Failed to create TCP listener");
         }

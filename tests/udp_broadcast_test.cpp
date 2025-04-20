@@ -46,9 +46,9 @@ public:
     BroadcastReceiver(int receiverId, int port)
         : bindAddress(ANY_ADDRESS, port), id(receiverId) {
         
-        // Use the platform factory to create socket
-        auto factory = INetworkSocketFactory::CreatePlatformFactory();
-        socket = factory->CreateUdpSocket();
+        // Use the NetworkFactorySingleton to create socket
+        auto& factory = NetworkFactorySingleton::GetInstance();
+        socket = factory.CreateUdpSocket();
     }
     
     ~BroadcastReceiver() {
@@ -159,8 +159,8 @@ protected:
     
     void SetUp() override {
         // Create the broadcaster socket
-        auto factory = INetworkSocketFactory::CreatePlatformFactory();
-        broadcaster = factory->CreateUdpSocket();
+        auto& factory = NetworkFactorySingleton::GetInstance();
+        broadcaster = factory.CreateUdpSocket();
         ASSERT_TRUE(broadcaster && broadcaster->IsValid()) << "Failed to create valid broadcaster socket";
         
         // Enable broadcasting on the socket

@@ -180,22 +180,6 @@ void testRealDataWaitForDataWithTimeout(std::shared_ptr<MockSocketT> mockSocket)
     EXPECT_LT(elapsed2, EXTENDED_TIMEOUT_MS);  // But not the full timeout
 }
 
-// Factory singleton for creating network sockets in tests
-class NetworkFactorySingleton {
-public:
-    static INetworkSocketFactory & GetInstance() {
-        if (!instance) {
-            factory = INetworkSocketFactory::CreatePlatformFactory();
-            instance = factory.get();
-        }
-        return *instance;
-    }
-
-private:
-    static std::unique_ptr<INetworkSocketFactory> factory;
-    static INetworkSocketFactory* instance;
-};
-
 // Common base class for test server infrastructure
 // T is the socket type that the server will use (ITcpListener or IUdpSocket)
 template <typename SocketT>
@@ -212,9 +196,6 @@ protected:
     std::string errorMessage;
     
 public:
-    // For backward compatibility with existing tests
-    static INetworkSocketFactory* g_factory;
-    
     TestServerBase(const std::string& ip, int port) : serverAddress(ip, port) {}
     
     virtual ~TestServerBase() {
@@ -257,10 +238,6 @@ protected:
     // These run methods will be implemented by the concrete child classes
     virtual void run() = 0;
 };
-
-// Initialize the static member with the singleton instance
-template <typename SocketT>
-INetworkSocketFactory* TestServerBase<SocketT>::g_factory = &NetworkFactorySingleton::GetInstance(); // Take address of the returned reference
 
 } // namespace test_utils
 

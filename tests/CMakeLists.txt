@@ -18,7 +18,6 @@ add_executable(
   udp_broadcast_test.cpp
   tcp_client_server_connection_test.cpp
   udp_client_server_connection_test.cpp
-  utils/test_utils.cpp
 )
 
 # Link against GoogleTest/GoogleMock and our library

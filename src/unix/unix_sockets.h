@@ -10,7 +10,7 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <cstddef> // For std::byte
+#include <cstddef>
 #include "network/tcp_socket.h"
 #include "network/udp_socket.h"
 #include "network/platform_factory.h"

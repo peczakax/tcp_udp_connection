@@ -25,7 +25,7 @@ private:
 
 public:
     TestUdpServer(int port = DEFAULT_UDP_SERVER_PORT) : TestServerBase<IUdpSocket>("127.0.0.1", port) {
-        socket = g_factory->CreateUdpSocket();
+        socket = NetworkFactorySingleton::GetInstance().CreateUdpSocket();
     }
 
     bool start() override {
@@ -116,7 +116,7 @@ protected:
 
     // Helper method to create and bind a client
     bool CreateAndBindClient() {
-        client = TestServerBase<IUdpSocket>::g_factory->CreateUdpSocket();
+        client = NetworkFactorySingleton::GetInstance().CreateUdpSocket();
         if (!client->IsValid()) {
             return false;
         }

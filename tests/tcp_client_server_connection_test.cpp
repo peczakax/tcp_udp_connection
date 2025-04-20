@@ -26,7 +26,7 @@ private:
 public:
     TestTcpServer(int port = DEFAULT_TCP_SERVER_PORT) 
         : TestServerBase<ITcpListener>("127.0.0.1", port) {
-        socket = g_factory->CreateTcpListener();
+        socket = NetworkFactorySingleton::GetInstance().CreateTcpListener();
     }
 
     bool start() override {
@@ -121,7 +121,7 @@ protected:
 
     // Helper method to create and connect a client
     bool CreateAndConnectClient(const NetworkAddress& serverAddr) {
-        client = TestServerBase<ITcpListener>::g_factory->CreateTcpSocket();
+        client = NetworkFactorySingleton::GetInstance().CreateTcpSocket();
         if (!client->Connect(serverAddr)) {
             return false;
         }
@@ -176,7 +176,7 @@ TEST_F(TcpClientServerConnectionTest, MultipleConnections) {
 
     // Function to run a client connection test
     auto runClient = [this, &serverAddr](int clientId) -> bool {
-        auto tempClient = TestServerBase<ITcpListener>::g_factory->CreateTcpSocket();
+        auto tempClient = NetworkFactorySingleton::GetInstance().CreateTcpSocket();
         if (!tempClient->Connect(serverAddr)) {
             return false;
         }
@@ -206,11 +206,8 @@ TEST_F(TcpClientServerConnectionTest, MultipleConnections) {
 TEST_F(TcpClientServerConnectionTest, ConnectionTimeouts) {
     using namespace timeouts;
     
-    // Create a real socket factory directly (not through TestServerBase)
-    auto factory = INetworkSocketFactory::CreatePlatformFactory();
-    
-    // Try to connect to a server that doesn't exist using the real socket
-    client = factory->CreateTcpSocket();
+    // Create socket using NetworkFactorySingleton
+    client = NetworkFactorySingleton::GetInstance().CreateTcpSocket();
     ASSERT_TRUE(client->IsValid()) << "Failed to create a valid TCP socket";
 
     // Set a short connection timeout

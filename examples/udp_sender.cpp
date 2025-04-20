@@ -7,8 +7,8 @@
 int main() {
     std::cout << "Running UDP sender example..." << std::endl;
 
-    auto factory = INetworkSocketFactory::CreatePlatformFactory();
-    auto socket = factory->CreateUdpSocket();
+    auto& factory = NetworkFactorySingleton::GetInstance();
+    auto socket = factory.CreateUdpSocket();
     
     std::string message = "Hello, UDP receiver!";
     std::vector<std::byte> data = NetworkUtils::StringToBytes(message);

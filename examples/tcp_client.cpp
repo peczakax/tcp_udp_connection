@@ -7,8 +7,8 @@
 int main() {
     std::cout << "Running TCP client example..." << std::endl;
 
-    auto factory = INetworkSocketFactory::CreatePlatformFactory();
-    auto socket = factory->CreateTcpSocket();
+    auto& factory = NetworkFactorySingleton::GetInstance();
+    auto socket = factory.CreateTcpSocket();
     socket->SetNoDelay(true);
     
     std::cout << "Connecting to 127.0.0.1:8080..." << std::endl;

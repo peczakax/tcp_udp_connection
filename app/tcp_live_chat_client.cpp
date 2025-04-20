@@ -83,9 +83,8 @@ private:
 public:
     TCPLiveChatClient(const std::string& serverIp, int port, const std::string& username)
         : username(username), serverAddress(serverIp, port) {
-        // Create the socket using the platform factory
-        auto factory = INetworkSocketFactory::CreatePlatformFactory();
-        socket = factory->CreateTcpSocket();
+        auto& factory = NetworkFactorySingleton::GetInstance();
+        socket = factory.CreateTcpSocket();
     }
     
     bool connect() {

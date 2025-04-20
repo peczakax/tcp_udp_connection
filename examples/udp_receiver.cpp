@@ -7,8 +7,8 @@
 int main() {
     std::cout << "Running UDP receiver example..." << std::endl;
 
-    auto factory = INetworkSocketFactory::CreatePlatformFactory();
-    auto socket = factory->CreateUdpSocket();
+    auto& factory = NetworkFactorySingleton::GetInstance();
+    auto socket = factory.CreateUdpSocket();
     
     if (!socket->Bind(NetworkAddress("0.0.0.0", 8082))) {
         std::cout << "Failed to bind UDP socket to port 8082" << std::endl;

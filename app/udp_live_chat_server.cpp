@@ -422,9 +422,9 @@ public:
     UdpLiveChatServer(int port = DEFAULT_PORT) : serverPort(port) {}
     
     void start() {
-        // Create UDP socket using platform factory
-        auto factory = INetworkSocketFactory::CreatePlatformFactory();
-        socket = factory->CreateUdpSocket();
+        // Create UDP socket using NetworkFactorySingleton
+        auto& factory = NetworkFactorySingleton::GetInstance();
+        socket = factory.CreateUdpSocket();
         
         if (!socket || !socket->IsValid()) {
             throw std::runtime_error("Failed to create UDP socket");

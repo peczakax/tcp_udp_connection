@@ -12,6 +12,7 @@ A cross-platform C++ networking library that provides abstractions for TCP and U
 - Integration tests for UDP broadcast functionality
 - Specialized timeout functionality for non-blocking operations
 - Live chat application examples using TCP and UDP sockets
+- Utility functions for byte conversions
 
 ## Requirements
 
@@ -106,17 +107,21 @@ tcp_udp_connection/
 │   ├── udp_live_chat_client.cpp   
 │   │   └── UDP chat client implementation
 │   └── udp_live_chat_server.cpp   
-│   │   └── UDP chat server implementation
+│       └── UDP chat server implementation
 ├── include/                       
 │   └── Public API headers
 │   └── network/                   
 │       └── Library namespace
+│       ├── byte_utils.h           
+│       │   └── Utility functions for byte conversions
 │       ├── network.h              
 │       │   └── Core networking abstractions
 │       ├── tcp_socket.h           
 │       │   └── TCP-specific interfaces
 │       ├── udp_socket.h           
 │       │   └── UDP-specific interfaces
+│       ├── socket_options.h       
+│       │   └── Socket configuration options
 │       └── platform_factory.h     
 │           └── Factory interface
 ├── src/                           
@@ -125,6 +130,8 @@ tcp_udp_connection/
 │   │   └── Library build configuration
 │   ├── platform_factory.cpp       
 │   │   └── Factory implementation
+│   ├── socket_options.cpp         
+│   │   └── Socket options implementation
 │   ├── unix/                      
 │   │   └── Unix-specific implementations
 │   │   ├── CMakeLists.txt         
@@ -161,12 +168,12 @@ tcp_udp_connection/
 │   │   └── UDP timeout functionality tests
 │   └── utils/                     
 │       └── Test utilities
+│       └── test_utils.h           
+│           └── Test utility header
 └── examples/                      
     └── Example applications
     ├── CMakeLists.txt             
     │   └── Examples build configuration
-    ├── examples.cpp               
-    │   └── Common examples code (if exists)
     ├── tcp_client.cpp             
     │   └── TCP client example
     ├── tcp_server.cpp             
@@ -188,7 +195,7 @@ The library is designed to work seamlessly across different platforms:
 - **Windows**: Uses Winsock2 API
 - **Unix/Linux/macOS**: Uses POSIX sockets API
 
-The platform-specific implementations are automatically selected at compile time.
+Platform-specific implementations are automatically selected through the `NetworkFactorySingleton` class, which provides a clean, thread-safe interface to create the appropriate socket implementations.
 
 ## Tests
 
@@ -232,22 +239,17 @@ The library is architected around clean abstractions with a focus on ease of use
 A struct to hold IP address and port information.
 
 ```cpp
-// filepath: include/network/network.h
-// ...
 struct NetworkAddress {
     std::string ipAddress;
     unsigned short port;
     NetworkAddress(const std::string& ip = "", unsigned short p = 0);
 };
-// ...
 ```
 
 #### Base Socket Interface (`ISocketBase`)
 Provides common functionality for all socket types.
 
 ```cpp
-// filepath: include/network/network.h
-// ...
 class ISocketBase {
 public:
     virtual ~ISocketBase() = default;
@@ -257,15 +259,12 @@ public:
     virtual bool IsValid() const = 0;
     virtual bool WaitForDataWithTimeout(int timeoutMs) = 0;
 };
-// ...
 ```
 
 #### Connection-Oriented Sockets (`IConnectionOrientedSocket`, `IConnectionListener`)
 Interfaces for sockets that establish a connection before data transfer (like TCP).
 
 ```cpp
-// filepath: include/network/network.h
-// ...
 class IConnectionOrientedSocket : public ISocketBase {
 public:
     virtual bool Connect(const NetworkAddress& remoteAddress) = 0;
@@ -280,29 +279,23 @@ public:
     virtual bool Listen(int backlog) = 0;
     virtual std::unique_ptr<IConnectionOrientedSocket> Accept() = 0;
 };
-// ...
 ```
 
 #### Connectionless Sockets (`IConnectionlessSocket`)
 Interface for sockets that send data without establishing a connection (like UDP).
 
 ```cpp
-// filepath: include/network/network.h
-// ...
 class IConnectionlessSocket : public ISocketBase {
 public:
     virtual int SendTo(const std::vector<std::byte>& data, const NetworkAddress& remoteAddress) = 0;
     virtual int ReceiveFrom(std::vector<std::byte>& buffer, NetworkAddress& remoteAddress) = 0;
 };
-// ...
 ```
 
 #### TCP Specific Interfaces (`ITcpSocket`, `ITcpListener`)
 Concrete interfaces inheriting from the connection-oriented base interfaces, potentially adding TCP-specific methods.
 
 ```cpp
-// filepath: include/network/tcp_socket.h
-// ...
 class ITcpSocket : public IConnectionOrientedSocket {
 public:
     virtual bool SetNoDelay(bool enable) = 0;
@@ -313,30 +306,24 @@ public:
     virtual std::unique_ptr<IConnectionOrientedSocket> Accept() override = 0;
     virtual std::unique_ptr<ITcpSocket> AcceptTcp();
 };
-// ...
 ```
 
 #### UDP Specific Interface (`IUdpSocket`)
 Concrete interface inheriting from the connectionless base interface, adding UDP-specific methods.
 
 ```cpp
-// filepath: include/network/udp_socket.h
-// ...
 class IUdpSocket : public IConnectionlessSocket {
 public:
     virtual bool SetBroadcast(bool enable) = 0;
     virtual bool JoinMulticastGroup(const NetworkAddress& groupAddress) = 0;
     virtual bool LeaveMulticastGroup(const NetworkAddress& groupAddress) = 0;
 };
-// ...
 ```
 
 #### Factory Pattern (`INetworkSocketFactory`)
 An abstract factory creates the appropriate socket implementation based on the current platform.
 
 ```cpp
-// filepath: include/network/platform_factory.h
-// ...
 class INetworkSocketFactory {
 public:
     virtual ~INetworkSocketFactory() = default;
@@ -346,7 +333,20 @@ public:
 
     static std::unique_ptr<INetworkSocketFactory> CreatePlatformFactory();
 };
-// ...
+```
+
+### Byte Utilities
+
+The library includes utility functions for converting between strings and byte vectors:
+
+```cpp
+namespace NetworkUtils {
+    // Helper function to convert string to vector of bytes
+    std::vector<std::byte> StringToBytes(const std::string& str);
+    
+    // Helper function to convert vector of bytes to string
+    std::string BytesToString(const std::vector<std::byte>& bytes);
+}
 ```
 
 ### Design Principles
@@ -385,8 +385,9 @@ auto clientSocket = factory->CreateTcpSocket();
 NetworkAddress serverTarget("127.0.0.1", 8080);
 if (clientSocket->Connect(serverTarget)) {
     std::cout << "Connected to server." << std::endl;
-    // Use std::byte for data transfer
-    std::vector<std::byte> data = {std::byte{'H'}, std::byte{'e'}, std::byte{'l'}, std::byte{'l'}, std::byte{'o'}};
+    // Use NetworkUtils for string to byte conversion
+    std::string message = "Hello";
+    std::vector<std::byte> data = NetworkUtils::StringToBytes(message);
     clientSocket->Send(data);
     // ... receive response ...
     clientSocket->Close();
@@ -424,10 +425,12 @@ if (udpSocket->Bind(localAddr)) {
     std::cerr << "Failed to bind UDP socket." << std::endl;
 }
 
-// UDP Broadcast example (use std::byte)
+// UDP Broadcast example
 auto broadcastSocket = factory->CreateUdpSocket();
 if (broadcastSocket->SetBroadcast(true)) {
-    std::vector<std::byte> broadcastData = {std::byte{'B'}, std::byte{'r'}, std::byte{'o'}, std::byte{'a'}, std::byte{'d'}, std::byte{'c'}, std::byte{'a'}, std::byte{'s'}, std::byte{'t'}};
+    // Use NetworkUtils for string to byte conversion
+    std::string message = "Broadcast";
+    std::vector<std::byte> broadcastData = NetworkUtils::StringToBytes(message);
     NetworkAddress broadcastAddr("255.255.255.255", 9999);
     broadcastSocket->SendTo(broadcastData, broadcastAddr);
     std::cout << "Sent broadcast message." << std::endl;
@@ -592,6 +595,20 @@ if (socket->WaitForDataWithTimeout(500)) { // Wait for 500ms
 }
 ```
 
+### Byte Conversion Utilities
+
+The library provides utility functions for easy conversion between strings and byte vectors:
+
+```cpp
+// Converting a string to bytes for sending
+std::string message = "Hello, world!";
+std::vector<std::byte> bytes = NetworkUtils::StringToBytes(message);
+
+// Converting received bytes back to a string
+std::vector<std::byte> receivedBytes = /* ... */;
+std::string receivedMessage = NetworkUtils::BytesToString(receivedBytes);
+```
+
 ### Live Chat Applications
 
 The library includes complete implementations of chat applications using both TCP and UDP protocols:
@@ -623,4 +640,4 @@ This project is available under the MIT License.
 
 ## Last Updated
 
-April 19, 2025
+April 20, 2025

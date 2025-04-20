@@ -9,11 +9,9 @@
 int main() {
     std::cout << "Running UDP multicast example..." << std::endl;
 
-    auto factory = INetworkSocketFactory::CreatePlatformFactory();
-    
-    // Create sender and receiver
-    auto sender = factory->CreateUdpSocket();
-    auto receiver = factory->CreateUdpSocket();
+    auto& factory = NetworkFactorySingleton::GetInstance();
+    auto sender = factory.CreateUdpSocket();
+    auto receiver = factory.CreateUdpSocket();
     
     // Multicast configuration
     NetworkAddress multicastGroup("239.255.1.1", 8083);
