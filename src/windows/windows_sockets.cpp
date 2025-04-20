@@ -286,6 +286,14 @@ bool WindowsTcpSocket::WaitForDataWithTimeout(int timeoutMs) {
     return WindowsSocketHelpers::WaitForDataWithTimeout(m_socket, timeoutMs);
 }
 
+bool WindowsTcpSocket::SetSocketOption(int level, int optionName, const void* optionValue, socklen_t optionLen) {
+    if (m_socket == INVALID_SOCKET)
+        return false;
+
+    return (setsockopt(m_socket, level, optionName, 
+                      static_cast<const char*>(optionValue), static_cast<int>(optionLen)) == 0);
+}
+
 // WindowsTcpListener Implementation
 WindowsTcpListener::WindowsTcpListener() 
     : m_socket(INVALID_SOCKET) {
@@ -381,6 +389,14 @@ void WindowsTcpListener::SetReuseAddr(bool enable) {
 
 bool WindowsTcpListener::WaitForDataWithTimeout(int timeoutMs) {
     return WindowsSocketHelpers::WaitForDataWithTimeout(m_socket, timeoutMs);
+}
+
+bool WindowsTcpListener::SetSocketOption(int level, int optionName, const void* optionValue, socklen_t optionLen) {
+    if (m_socket == INVALID_SOCKET)
+        return false;
+
+    return (setsockopt(m_socket, level, optionName, 
+                      static_cast<const char*>(optionValue), static_cast<int>(optionLen)) == 0);
 }
 
 // WindowsUdpSocket Implementation
@@ -521,6 +537,14 @@ bool WindowsUdpSocket::LeaveMulticastGroup(const NetworkAddress& groupAddress) {
 
 bool WindowsUdpSocket::WaitForDataWithTimeout(int timeoutMs) {
     return WindowsSocketHelpers::WaitForDataWithTimeout(m_socket, timeoutMs);
+}
+
+bool WindowsUdpSocket::SetSocketOption(int level, int optionName, const void* optionValue, socklen_t optionLen) {
+    if (m_socket == INVALID_SOCKET)
+        return false;
+
+    return (setsockopt(m_socket, level, optionName, 
+                      static_cast<const char*>(optionValue), static_cast<int>(optionLen)) == 0);
 }
 
 // WindowsNetworkSocketFactory Implementation

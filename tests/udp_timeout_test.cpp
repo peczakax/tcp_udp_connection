@@ -22,6 +22,7 @@ public:
     MOCK_METHOD(bool, JoinMulticastGroup, (const NetworkAddress& groupAddress), (override));
     MOCK_METHOD(bool, LeaveMulticastGroup, (const NetworkAddress& groupAddress), (override));
     MOCK_METHOD(bool, WaitForDataWithTimeout, (int timeoutMs), (override));
+    MOCK_METHOD(bool, SetSocketOption, (int level, int optionName, const void* optionValue, socklen_t optionLen), (override));
 };
 
 // Test for basic UDP WaitForDataWithTimeout functionality

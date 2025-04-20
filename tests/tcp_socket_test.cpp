@@ -24,6 +24,7 @@ public:
     MOCK_METHOD(bool, SetNoDelay, (bool enable), (override));
     MOCK_METHOD(bool, WaitForDataWithTimeout, (int timeoutMs), (override));
     MOCK_METHOD(bool, SetConnectTimeout, (int timeoutMs), (override));
+    MOCK_METHOD(bool, SetSocketOption, (int level, int optionName, const void* optionValue, socklen_t optionLen), (override));
 };
 
 // Mock class for TCP listener
@@ -37,6 +38,7 @@ public:
     MOCK_METHOD(bool, Listen, (int backlog), (override));
     MOCK_METHOD(std::unique_ptr<IConnectionOrientedSocket>, Accept, (), (override));
     MOCK_METHOD(bool, WaitForDataWithTimeout, (int timeoutMs), (override));
+    MOCK_METHOD(bool, SetSocketOption, (int level, int optionName, const void* optionValue, socklen_t optionLen), (override));
 };
 
 // Mock class for TCP socket factory

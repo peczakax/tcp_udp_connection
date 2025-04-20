@@ -39,6 +39,7 @@ public:
     NetworkAddress GetLocalAddress() const override;
     bool IsValid() const override;
     void SetReuseAddr(bool enable) override;
+    bool SetSocketOption(int level, int optionName, const void* optionValue, socklen_t optionLen) override;
 
     // IConnectionOrientedSocket implementation
     bool Connect(const NetworkAddress& remoteAddress) override;
@@ -70,6 +71,7 @@ public:
     NetworkAddress GetLocalAddress() const override;
     bool IsValid() const override;
     void SetReuseAddr(bool enable) override;
+    bool SetSocketOption(int level, int optionName, const void* optionValue, socklen_t optionLen) override;
     bool WaitForDataWithTimeout(int timeoutMs) override;
     bool Listen(int backlog) override;
     std::unique_ptr<IConnectionOrientedSocket> Accept() override;
@@ -91,6 +93,7 @@ public:
     NetworkAddress GetLocalAddress() const override;
     bool IsValid() const override;
     void SetReuseAddr(bool enable) override;
+    bool SetSocketOption(int level, int optionName, const void* optionValue, socklen_t optionLen) override;
 
     // IConnectionlessSocket implementation
     int SendTo(const std::vector<std::byte>& data, const NetworkAddress& remoteAddress) override;

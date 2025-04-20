@@ -1,30 +1,25 @@
-# Platform-specific implementations
+set(SOURCE_FILES
+    platform_factory.cpp
+    socket_options.cpp
+)
+
+# Add platform-specific sources
 if(WIN32)
-    set(PLATFORM_SOURCES
+    add_subdirectory(windows)
+    list(APPEND SOURCE_FILES
         windows/windows_sockets.cpp
     )
 else()
-    set(PLATFORM_SOURCES
+    add_subdirectory(unix)
+    list(APPEND SOURCE_FILES
         unix/unix_sockets.cpp
     )
 endif()
 
-# Create the library with all sources
-add_library(network
-    platform_factory.cpp
-    ${PLATFORM_SOURCES}
-)
+add_library(network STATIC ${SOURCE_FILES})
 
-# Include directories
-target_include_directories(network 
-    PUBLIC 
-        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:include>
-    PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}
-)
+target_include_directories(network PUBLIC ${CMAKE_SOURCE_DIR}/include)
 
-# Platform-specific dependencies
 if(WIN32)
     target_link_libraries(network PRIVATE ws2_32)
 endif()

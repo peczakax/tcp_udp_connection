@@ -30,6 +30,15 @@ public:
     
     // Socket options
     virtual void SetReuseAddr(bool enable) = 0; // Enables/disables SO_REUSEADDR socket option
+    
+    // Generic socket option interface - allows setting any socket option
+    virtual bool SetSocketOption(int level, int optionName, const void* optionValue, socklen_t optionLen) = 0;
+    
+    // Templated helper for type safety when setting socket options
+    template<typename T>
+    bool SetSocketOption(int level, int optionName, const T& value) {
+        return SetSocketOption(level, optionName, &value, sizeof(T));
+    }
 };
 
 // Interface for connection-oriented sockets (like TCP)

@@ -241,6 +241,13 @@ bool UnixTcpSocket::WaitForDataWithTimeout(int timeoutMs) {
     return UnixSocketHelpers::WaitForDataWithTimeout(m_socketFd, timeoutMs);
 }
 
+bool UnixTcpSocket::SetSocketOption(int level, int optionName, const void* optionValue, socklen_t optionLen) {
+    if (m_socketFd == -1)
+        return false;
+
+    return (setsockopt(m_socketFd, level, optionName, optionValue, optionLen) == 0);
+}
+
 // UnixTcpListener Implementation
 UnixTcpListener::UnixTcpListener() 
     : m_socketFd(-1), m_reuseAddr(false) {
@@ -317,6 +324,13 @@ void UnixTcpListener::SetReuseAddr(bool enable) {
 
 bool UnixTcpListener::WaitForDataWithTimeout(int timeoutMs) {
     return UnixSocketHelpers::WaitForDataWithTimeout(m_socketFd, timeoutMs);
+}
+
+bool UnixTcpListener::SetSocketOption(int level, int optionName, const void* optionValue, socklen_t optionLen) {
+    if (m_socketFd == -1)
+        return false;
+
+    return (setsockopt(m_socketFd, level, optionName, optionValue, optionLen) == 0);
 }
 
 // UnixUdpSocket Implementation
@@ -434,6 +448,13 @@ bool UnixUdpSocket::LeaveMulticastGroup(const NetworkAddress& groupAddress) {
 
 bool UnixUdpSocket::WaitForDataWithTimeout(int timeoutMs) {
     return UnixSocketHelpers::WaitForDataWithTimeout(m_socketFd, timeoutMs);
+}
+
+bool UnixUdpSocket::SetSocketOption(int level, int optionName, const void* optionValue, socklen_t optionLen) {
+    if (m_socketFd == -1)
+        return false;
+
+    return (setsockopt(m_socketFd, level, optionName, optionValue, optionLen) == 0);
 }
 
 // UnixNetworkSocketFactory Implementation
