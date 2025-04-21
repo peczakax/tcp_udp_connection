@@ -38,25 +38,16 @@ public:
     virtual NetworkAddress GetLocalAddress() const = 0;
     virtual bool IsValid() const = 0;
     virtual bool WaitForDataWithTimeout(int timeoutMs) = 0;
-    
+
     // Generic socket option interface - allows setting any socket option
     virtual bool SetSocketOption(int level, int optionName, const void* optionValue, socklen_t optionLen) = 0;
     // Generic socket option interface - allows getting any socket option
     virtual bool GetSocketOption(int level, int optionName, void* optionValue, socklen_t* optionLen) const = 0;
     
-    // Templated helper for type safety when setting socket options
-    template<typename T>
-    bool SetSocketOption(int level, int optionName, const T& value) {
-        return SetSocketOption(level, optionName, &value, sizeof(T));
-    }
-
-    // Templated helper for type safety when getting socket options
-    template<typename T>
-    bool GetSocketOption(int level, int optionName, T& value) const {
-        socklen_t len = sizeof(T);
-        return GetSocketOption(level, optionName, &value, &len);
-    }
 };
+
+// Include socket utility functions after ISocketBase is defined
+#include "socket_utils.h"
 
 // Interface for connection-oriented sockets (like TCP)
 class IConnectionOrientedSocket : public ISocketBase {

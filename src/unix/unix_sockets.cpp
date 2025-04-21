@@ -4,6 +4,7 @@
 #include <cerrno>
 #include <cstring>
 #include <stdexcept>
+#include <chrono>
 
 // Helper functions
 namespace {
@@ -50,8 +51,8 @@ namespace UnixSocketHelpers {
         FD_SET(socketFd, &readSet);
 
         struct timespec timeout;
-        timeout.tv_sec = timeoutMs / 1000;
-        timeout.tv_nsec = (timeoutMs % 1000) * 1000000; // convert to nanoseconds
+        timeout.tv_sec = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::milliseconds(timeoutMs)).count();
+        timeout.tv_nsec = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::milliseconds(timeoutMs) - std::chrono::duration_cast<std::chrono::seconds>(std::chrono::milliseconds(timeoutMs))).count();
 
         // Use pselect to wait for data with timeout
         // Pass NULL for sigmask to maintain current signal mask

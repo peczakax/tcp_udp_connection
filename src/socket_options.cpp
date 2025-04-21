@@ -1,5 +1,6 @@
 #include "network/socket_options.h"
 #include "network/network.h"
+#include "network/socket_utils.h"
 
 #ifdef _WIN32
     #include <WinSock2.h>
@@ -50,7 +51,7 @@ bool SetReuseAddr(ISocketBase* socket, bool enable) {
     if (!socket) return false;
 
     int value = enable ? 1 : 0;
-    return socket->SetSocketOption(SOL_SOCKET, SO_REUSEADDR, value);
+    return SocketUtils::SetSocketOption<int>(socket, SOL_SOCKET, SO_REUSEADDR, value);
 }
 
 bool SetReusePort(ISocketBase* socket, bool enable) {
@@ -62,7 +63,7 @@ bool SetReusePort(ISocketBase* socket, bool enable) {
     // Windows doesn't have SO_REUSEPORT, it's combined with SO_REUSEADDR
     return SetReuseAddr(socket, enable);
     #else
-    return socket->SetSocketOption(SOL_SOCKET, SO_REUSEPORT, value);
+    return SocketUtils::SetSocketOption<int>(socket, SOL_SOCKET, SO_REUSEPORT, value);
     #endif
 }
 
@@ -70,14 +71,14 @@ bool SetBroadcast(ISocketBase* socket, bool enable) {
     if (!socket) return false;
 
     int value = enable ? 1 : 0;
-    return socket->SetSocketOption(SOL_SOCKET, SO_BROADCAST, value);
+    return SocketUtils::SetSocketOption<int>(socket, SOL_SOCKET, SO_BROADCAST, value);
 }
 
 bool SetKeepAlive(ISocketBase* socket, bool enable) {
     if (!socket) return false;
     
     int value = enable ? 1 : 0;
-    return socket->SetSocketOption(SOL_SOCKET, SO_KEEPALIVE, value);
+    return SocketUtils::SetSocketOption<int>(socket, SOL_SOCKET, SO_KEEPALIVE, value);
 }
 
 bool SetLinger(ISocketBase* socket, bool onoff, int seconds) {
@@ -93,19 +94,19 @@ bool SetLinger(ISocketBase* socket, bool onoff, int seconds) {
     lingerOpt.l_linger = seconds;
     #endif
     
-    return socket->SetSocketOption(SOL_SOCKET, SO_LINGER, lingerOpt);
+    return SocketUtils::SetSocketOption<struct linger>(socket, SOL_SOCKET, SO_LINGER, lingerOpt);
 }
 
 bool SetReceiveBufferSize(ISocketBase* socket, int size) {
     if (!socket) return false;
     
-    return socket->SetSocketOption(SOL_SOCKET, SO_RCVBUF, size);
+    return SocketUtils::SetSocketOption<int>(socket, SOL_SOCKET, SO_RCVBUF, size);
 }
 
 bool SetSendBufferSize(ISocketBase* socket, int size) {
     if (!socket) return false;
     
-    return socket->SetSocketOption(SOL_SOCKET, SO_SNDBUF, size);
+    return SocketUtils::SetSocketOption<int>(socket, SOL_SOCKET, SO_SNDBUF, size);
 }
 
 bool SetReceiveTimeout(ISocketBase* socket, const std::chrono::milliseconds& timeout) {
@@ -113,12 +114,12 @@ bool SetReceiveTimeout(ISocketBase* socket, const std::chrono::milliseconds& tim
 
     #ifdef _WIN32
     DWORD timeoutMs = static_cast<DWORD>(timeout.count());
-    return socket->SetSocketOption(SOL_SOCKET, SO_RCVTIMEO, timeoutMs);
+    return SocketUtils::SetSocketOption<DWORD>(socket, SOL_SOCKET, SO_RCVTIMEO, timeoutMs);
     #else
     struct timeval tv;
-    tv.tv_sec = static_cast<time_t>(timeout.count() / 1000);
-    tv.tv_usec = static_cast<suseconds_t>((timeout.count() % 1000) * 1000);
-    return socket->SetSocketOption(SOL_SOCKET, SO_RCVTIMEO, tv);
+    tv.tv_sec = std::chrono::duration_cast<std::chrono::seconds>(timeout).count();
+    tv.tv_usec = std::chrono::duration_cast<std::chrono::microseconds>(timeout - std::chrono::duration_cast<std::chrono::seconds>(timeout)).count();
+    return SocketUtils::SetSocketOption<struct timeval>(socket, SOL_SOCKET, SO_RCVTIMEO, tv);
     #endif
 }
 
@@ -127,12 +128,12 @@ bool SetSendTimeout(ISocketBase* socket, const std::chrono::milliseconds& timeou
 
     #ifdef _WIN32
     DWORD timeoutMs = static_cast<DWORD>(timeout.count());
-    return socket->SetSocketOption(SOL_SOCKET, SO_SNDTIMEO, timeoutMs);
+    return SocketUtils::SetSocketOption<DWORD>(socket, SOL_SOCKET, SO_SNDTIMEO, timeoutMs);
     #else
     struct timeval tv;
-    tv.tv_sec = static_cast<time_t>(timeout.count() / 1000);
-    tv.tv_usec = static_cast<suseconds_t>((timeout.count() % 1000) * 1000);
-    return socket->SetSocketOption(SOL_SOCKET, SO_SNDTIMEO, tv);
+    tv.tv_sec = std::chrono::duration_cast<std::chrono::seconds>(timeout).count();
+    tv.tv_usec = std::chrono::duration_cast<std::chrono::microseconds>(timeout - std::chrono::duration_cast<std::chrono::seconds>(timeout)).count();
+    return SocketUtils::SetSocketOption<struct timeval>(socket, SOL_SOCKET, SO_SNDTIMEO, tv);
     #endif
 }
 
@@ -140,62 +141,59 @@ bool SetDontRoute(ISocketBase* socket, bool enable) {
     if (!socket) return false;
     
     int value = enable ? 1 : 0;
-    return socket->SetSocketOption(SOL_SOCKET, SO_DONTROUTE, value);
+    return SocketUtils::SetSocketOption<int>(socket, SOL_SOCKET, SO_DONTROUTE, value);
 }
 
 bool SetOobInline(ISocketBase* socket, bool enable) {
     if (!socket) return false;
     
     int value = enable ? 1 : 0;
-    return socket->SetSocketOption(SOL_SOCKET, SO_OOBINLINE, value);
+    return SocketUtils::SetSocketOption<int>(socket, SOL_SOCKET, SO_OOBINLINE, value);
 }
 
 bool SetReceiveLowWatermark(ISocketBase* socket, int bytes) {
     if (!socket) return false;
     
-    return socket->SetSocketOption(SOL_SOCKET, SO_RCVLOWAT, bytes);
+    return SocketUtils::SetSocketOption<int>(socket, SOL_SOCKET, SO_RCVLOWAT, bytes);
 }
 
 bool SetSendLowWatermark(ISocketBase* socket, int bytes) {
     if (!socket) return false;
     
-    return socket->SetSocketOption(SOL_SOCKET, SO_SNDLOWAT, bytes);
+    return SocketUtils::SetSocketOption<int>(socket, SOL_SOCKET, SO_SNDLOWAT, bytes);
 }
 
 bool GetError(ISocketBase* socket, int& errorCode) {
     if (!socket) return false;
-    
-    socklen_t len = sizeof(errorCode);
-    return socket->GetSocketOption(SOL_SOCKET, SO_ERROR, &errorCode, &len);
+
+    return SocketUtils::GetSocketOption<int>(socket, SOL_SOCKET, SO_ERROR, errorCode);
 }
 
 bool GetType(ISocketBase* socket, int& type) {
     if (!socket) return false;
-    
-    socklen_t len = sizeof(type);
-    return socket->GetSocketOption(SOL_SOCKET, SO_TYPE, &type, &len);
+
+    return SocketUtils::GetSocketOption<int>(socket, SOL_SOCKET, SO_TYPE, type);
 }
 
 bool GetAcceptConn(ISocketBase* socket, bool& isListening) {
     if (!socket) return false;
-    
+
     int value = 0;
-    socklen_t len = sizeof(value);
-    bool success = socket->GetSocketOption(SOL_SOCKET, SO_ACCEPTCONN, &value, &len);
+    bool success = SocketUtils::GetSocketOption<int>(socket, SOL_SOCKET, SO_ACCEPTCONN, value);
     isListening = (value != 0);
     return success;
 }
 
 bool BindToDevice(ISocketBase* socket, const std::string& interfaceName) {
     if (!socket) return false;
-    
+
     #ifdef _WIN32
     // Windows doesn't have SO_BINDTODEVICE
     // SIO_BINDTODEVICE is closest but works differently
     return true; // Not directly supported in Windows
     #else
-    return socket->SetSocketOption(SOL_SOCKET, SO_BINDTODEVICE, 
-                                 interfaceName.c_str(), interfaceName.length() + 1);
+    // Use our new raw buffer implementation
+    return BindToDeviceRaw(socket, interfaceName.c_str());
     #endif
 }
 
@@ -206,7 +204,52 @@ bool SetPriority(ISocketBase* socket, int priority) {
     // Windows doesn't have SO_PRIORITY
     return true; // Not supported in Windows
     #else
-    return socket->SetSocketOption(SOL_SOCKET, SO_PRIORITY, priority);
+    return SocketUtils::SetSocketOption<int>(socket, SOL_SOCKET, SO_PRIORITY, priority);
+    #endif
+}
+
+// Raw buffer operations implementation
+bool SetRawOption(ISocketBase* socket, int level, int optionName, const char* buffer, size_t bufferSize) {
+    if (!socket || !buffer) return false;
+    
+    return SocketUtils::SetSocketOptionBuffer(socket, level, optionName, buffer, static_cast<socklen_t>(bufferSize));
+}
+
+bool GetRawOption(ISocketBase* socket, int level, int optionName, char* buffer, size_t& bufferSize) {
+    if (!socket || !buffer || bufferSize == 0) return false;
+    
+    socklen_t len = static_cast<socklen_t>(bufferSize);
+    bool result = SocketUtils::GetSocketOptionBuffer(socket, level, optionName, buffer, len);
+    bufferSize = static_cast<size_t>(len);
+    return result;
+}
+
+bool BindToDeviceRaw(ISocketBase* socket, const char* interfaceName, size_t ifNameMaxLen) {
+    if (!socket || !interfaceName) return false;
+
+    #ifdef _WIN32
+    // Windows doesn't have SO_BINDTODEVICE
+    (void)ifNameMaxLen; // Avoid unused parameter warning
+    return true; // Not directly supported in Windows
+    #else
+    // If ifNameMaxLen is not provided, use strlen + 1 for null terminator
+    size_t len = (ifNameMaxLen == 0) ? (strlen(interfaceName) + 1) : ifNameMaxLen;
+    return SetRawOption(socket, SOL_SOCKET, SO_BINDTODEVICE, interfaceName, len);
+    #endif
+}
+
+bool GetBoundDevice(ISocketBase* socket, char* buffer, size_t& bufferSize) {
+    if (!socket || !buffer || bufferSize == 0) return false;
+
+    #ifdef _WIN32
+    // Windows doesn't have SO_BINDTODEVICE
+    if (bufferSize > 0) {
+        buffer[0] = '\0';  // Return empty string
+        bufferSize = 1;
+    }
+    return true; // Not directly supported in Windows
+    #else
+    return GetRawOption(socket, SOL_SOCKET, SO_BINDTODEVICE, buffer, bufferSize);
     #endif
 }
 

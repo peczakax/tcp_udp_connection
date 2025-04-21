@@ -163,6 +163,49 @@ bool BindToDevice(ISocketBase* socket, const std::string& interfaceName);
  */
 bool SetPriority(ISocketBase* socket, int priority);
 
+// Raw buffer operations (using the char* specializations)
+// -----------------------------------------------------
+
+/**
+ * Sets a socket option with a raw buffer
+ * @param socket The socket to set the option on
+ * @param level The socket option level (SOL_SOCKET, IPPROTO_TCP, etc.)
+ * @param optionName The specific option to set
+ * @param buffer The buffer containing the option value
+ * @param bufferSize Size of the buffer in bytes
+ * @return Whether the operation was successful
+ */
+bool SetRawOption(ISocketBase* socket, int level, int optionName, const char* buffer, size_t bufferSize);
+
+/**
+ * Gets a socket option into a raw buffer
+ * @param socket The socket to get the option from
+ * @param level The socket option level (SOL_SOCKET, IPPROTO_TCP, etc.)
+ * @param optionName The specific option to get
+ * @param buffer The buffer to store the option value
+ * @param bufferSize Input: capacity of buffer, Output: actual size of option value
+ * @return Whether the operation was successful
+ */
+bool GetRawOption(ISocketBase* socket, int level, int optionName, char* buffer, size_t& bufferSize);
+
+/**
+ * Enhanced version of BindToDevice that uses raw buffer specialization
+ * @param socket The socket to set the option on
+ * @param interfaceName Name of the network interface
+ * @param ifNameMaxLen Maximum length of the interface name (including null terminator)
+ * @return Whether the operation was successful
+ */
+bool BindToDeviceRaw(ISocketBase* socket, const char* interfaceName, size_t ifNameMaxLen = 0);
+
+/**
+ * Gets the name of the device the socket is bound to (Unix-specific)
+ * @param socket The socket to get the option from
+ * @param buffer Buffer to store the interface name
+ * @param bufferSize Input: capacity of buffer, Output: actual size of interface name
+ * @return Whether the operation was successful
+ */
+bool GetBoundDevice(ISocketBase* socket, char* buffer, size_t& bufferSize);
+
 } // namespace SocketOptions
 
 #endif // SOCKET_OPTIONS_H
