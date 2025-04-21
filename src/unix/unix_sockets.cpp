@@ -1,9 +1,18 @@
 #if defined(__unix__) || defined(__APPLE__) || defined(__linux__)
 
 #include "unix_sockets.h"
+#include <arpa/inet.h>
+#include <fcntl.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <unistd.h>
+
 #include <cerrno>
 #include <cstring>
 #include <stdexcept>
+
 #include <chrono>
 
 // Helper functions

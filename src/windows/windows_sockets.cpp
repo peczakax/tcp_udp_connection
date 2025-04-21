@@ -2,7 +2,12 @@
 
 #include "windows_sockets.h"
 #include <stdexcept>
-#include <iostream> // Add this include for std::cerr and std::endl
+#include <iostream>
+#include <WinSock2.h>
+#include <WS2tcpip.h>
+#include <Windows.h>
+
+typedef int socklen_t;
 
 // Helper functions
 namespace {

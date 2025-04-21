@@ -1,15 +1,11 @@
 #ifndef NETWORK_H
 #define NETWORK_H
 
+// Platform-specific handling for socklen_t
 #ifdef _WIN32
-#include <winsock2.h> // Include for Windows sockets and socklen_t
-#include <ws2tcpip.h> // Include for additional definitions like IPPROTO_IPV6
-#pragma comment(lib, "Ws2_32.lib") // Link against the Winsock library
+#include <winsock2.h> // Minimal include for socklen_t on Windows
 #else
-#include <sys/socket.h> // Include for POSIX sockets and socklen_t
-#include <netinet/in.h> // Include for sockaddr_in, etc.
-#include <arpa/inet.h>  // Include for inet_pton, etc.
-#include <unistd.h>     // Include for close()
+#include <sys/types.h> // Minimal include for socklen_t on Unix systems
 #endif
 
 #include <vector>
