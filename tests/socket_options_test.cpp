@@ -1,9 +1,11 @@
-#include "gtest/gtest.h"
-#include "gmock/gmock.h"
-#include "network/socket_options.h"
-#include "network/network.h"
 #include <chrono>
 #include <cstring>
+
+#include "network/network.h"
+#include "network/socket_options.h"
+
+#include "gtest/gtest.h"
+#include "gmock/gmock.h"
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -400,7 +402,11 @@ TEST_F(SocketOptionsTest, GetRawOption) {
         .WillOnce(DoAll(
             WithArg<2>([expectedData](void* val) {
                 // Copy the expected data to the buffer
+                #ifdef _WIN32
+                strcpy_s(static_cast<char*>(val), strlen(expectedData) + 1, expectedData);
+                #else
                 strcpy(static_cast<char*>(val), expectedData);
+                #endif
             }),
             WithArg<3>([expectedData](socklen_t* len) {
                 // Set the length to include the null terminator
@@ -481,7 +487,11 @@ TEST_F(SocketOptionsTest, GetBoundDevice) {
         .WillOnce(DoAll(
             WithArg<2>([expectedInterface](void* val) {
                 // Copy the expected interface name to the buffer
+                #ifdef _WIN32
+                strcpy_s(static_cast<char*>(val), strlen(expectedInterface) + 1, expectedInterface);
+                #else
                 strcpy(static_cast<char*>(val), expectedInterface);
+                #endif
             }),
             WithArg<3>([expectedInterface](socklen_t* len) {
                 // Set the length to include the null terminator

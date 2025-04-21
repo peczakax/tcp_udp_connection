@@ -3,9 +3,9 @@
 
 // Platform-specific handling for socklen_t
 #ifdef _WIN32
-#include <winsock2.h> // Minimal include for socklen_t on Windows
+#include <ws2tcpip.h>  // Minimal include for socklen_t on Windows
 #else
-#include <sys/types.h> // Minimal include for socklen_t on Unix systems
+#include <sys/socket.h> // Minimal include for socklen_t on Unix/Linux/Mac
 #endif
 
 #include <vector>
