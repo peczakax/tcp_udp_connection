@@ -1,16 +1,16 @@
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
 #include "network/socket_options.h"
-#include "network/network.h" // For ISocketBase and platform defines
+#include "network/network.h"
 #include <chrono>
-#include <cstring> // For memcmp
+#include <cstring>
 
 #ifdef _WIN32
 #include <winsock2.h>
 #else
 #include <sys/socket.h>
-#include <sys/time.h> // For timeval
-#include <netinet/in.h> // For SOL_SOCKET etc.
+#include <sys/time.h>
+#include <netinet/in.h>
 #endif
 
 using ::testing::_;
@@ -32,19 +32,6 @@ public:
     MOCK_METHOD(bool, WaitForDataWithTimeout, (int timeoutMs), (override));
     MOCK_METHOD(bool, SetSocketOption, (int level, int optionName, const void* optionValue, socklen_t optionLen), (override));
     MOCK_METHOD(bool, GetSocketOption, (int level, int optionName, void* optionValue, socklen_t* optionLen), (const, override));
-
-    // Helper to handle templated SetSocketOption calls from the wrappers if needed
-    template<typename T>
-    bool SetSocketOption(int level, int optionName, const T& value) {
-        return SetSocketOption(level, optionName, &value, sizeof(T));
-    }
-
-    // Helper to handle templated GetSocketOption calls from the wrappers if needed
-    template<typename T>
-    bool GetSocketOption(int level, int optionName, T& value) const {
-        socklen_t len = sizeof(T);
-        return GetSocketOption(level, optionName, &value, &len);
-    }
 };
 
 // Constants for socket options testing
@@ -381,7 +368,10 @@ TEST_F(SocketOptionsTest, SetRawOption) {
     const char* testData = "test-data";
     size_t dataSize = strlen(testData) + 1;  // Include null terminator
     
-    EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_BINDTODEVICE, NotNull(), static_cast<socklen_t>(dataSize)))
+    // Use a common socket option that exists on both platforms for the test
+    int testOption = SO_REUSEADDR;
+    
+    EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, testOption, NotNull(), static_cast<socklen_t>(dataSize)))
         .WillOnce(DoAll(
             WithArg<2>([testData](const void* val) {
                 EXPECT_STREQ(static_cast<const char*>(val), testData);
@@ -389,13 +379,13 @@ TEST_F(SocketOptionsTest, SetRawOption) {
             Return(true)
         ));
     
-    EXPECT_TRUE(SocketOptions::SetRawOption(&mockSocket, SOL_SOCKET, SO_BINDTODEVICE, testData, dataSize));
+    EXPECT_TRUE(SocketOptions::SetRawOption(&mockSocket, SOL_SOCKET, testOption, testData, dataSize));
     
     // Test with null socket
-    EXPECT_FALSE(SocketOptions::SetRawOption(nullptr, SOL_SOCKET, SO_BINDTODEVICE, testData, dataSize));
+    EXPECT_FALSE(SocketOptions::SetRawOption(nullptr, SOL_SOCKET, testOption, testData, dataSize));
     
     // Test with null buffer
-    EXPECT_FALSE(SocketOptions::SetRawOption(&mockSocket, SOL_SOCKET, SO_BINDTODEVICE, nullptr, dataSize));
+    EXPECT_FALSE(SocketOptions::SetRawOption(&mockSocket, SOL_SOCKET, testOption, nullptr, dataSize));
 }
 
 TEST_F(SocketOptionsTest, GetRawOption) {
@@ -403,7 +393,10 @@ TEST_F(SocketOptionsTest, GetRawOption) {
     size_t bufferSize = 16;  // Large enough for the expected data
     char buffer[16] = {0};   // Initialize buffer with zeros
     
-    EXPECT_CALL(mockSocket, GetSocketOption(SOL_SOCKET, SO_BINDTODEVICE, NotNull(), NotNull()))
+    // Use a common socket option that exists on both platforms for the test
+    int testOption = SO_REUSEADDR;
+    
+    EXPECT_CALL(mockSocket, GetSocketOption(SOL_SOCKET, testOption, NotNull(), NotNull()))
         .WillOnce(DoAll(
             WithArg<2>([expectedData](void* val) {
                 // Copy the expected data to the buffer
@@ -417,20 +410,20 @@ TEST_F(SocketOptionsTest, GetRawOption) {
         ));
     
     size_t actualSize = bufferSize;
-    EXPECT_TRUE(SocketOptions::GetRawOption(&mockSocket, SOL_SOCKET, SO_BINDTODEVICE, buffer, actualSize));
+    EXPECT_TRUE(SocketOptions::GetRawOption(&mockSocket, SOL_SOCKET, testOption, buffer, actualSize));
     EXPECT_STREQ(buffer, expectedData);
     EXPECT_EQ(actualSize, strlen(expectedData) + 1);
     
     // Test with null socket
     actualSize = bufferSize;
-    EXPECT_FALSE(SocketOptions::GetRawOption(nullptr, SOL_SOCKET, SO_BINDTODEVICE, buffer, actualSize));
+    EXPECT_FALSE(SocketOptions::GetRawOption(nullptr, SOL_SOCKET, testOption, buffer, actualSize));
     
     // Test with null buffer
-    EXPECT_FALSE(SocketOptions::GetRawOption(&mockSocket, SOL_SOCKET, SO_BINDTODEVICE, nullptr, actualSize));
+    EXPECT_FALSE(SocketOptions::GetRawOption(&mockSocket, SOL_SOCKET, testOption, nullptr, actualSize));
     
     // Test with zero buffer size
     actualSize = 0;
-    EXPECT_FALSE(SocketOptions::GetRawOption(&mockSocket, SOL_SOCKET, SO_BINDTODEVICE, buffer, actualSize));
+    EXPECT_FALSE(SocketOptions::GetRawOption(&mockSocket, SOL_SOCKET, testOption, buffer, actualSize));
 }
 
 TEST_F(SocketOptionsTest, BindToDeviceRaw) {
