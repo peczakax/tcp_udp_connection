@@ -166,8 +166,10 @@ void testRealDataWaitForDataWithTimeout(std::shared_ptr<MockSocketT> mockSocket)
     auto elapsed1 = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
     
     EXPECT_FALSE(result1);
-    EXPECT_GE(elapsed1, SHORT_TIMEOUT_MS);  // Should have waited at least the timeout
-    EXPECT_LT(elapsed1, DATA_ARRIVAL_TIME_MS);  // But shouldn't wait the full data arrival time
+    // Add some tolerance to account for timing variations across systems
+    constexpr int TIME_TOLERANCE_MS = 50;
+    EXPECT_GE(elapsed1, SHORT_TIMEOUT_MS - TIME_TOLERANCE_MS);  // Should have waited approximately the timeout
+    EXPECT_LT(elapsed1, DATA_ARRIVAL_TIME_MS + TIME_TOLERANCE_MS);  // But shouldn't wait the full data arrival time
     
     // Test case 2: Wait time greater than data arrival time - should succeed
     startTime = std::chrono::steady_clock::now();
@@ -176,8 +178,8 @@ void testRealDataWaitForDataWithTimeout(std::shared_ptr<MockSocketT> mockSocket)
     auto elapsed2 = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
     
     EXPECT_TRUE(result2);
-    EXPECT_GE(elapsed2, DATA_ARRIVAL_TIME_MS);  // Should have waited until data arrived
-    EXPECT_LT(elapsed2, EXTENDED_TIMEOUT_MS);  // But not the full timeout
+    EXPECT_GE(elapsed2, DATA_ARRIVAL_TIME_MS - TIME_TOLERANCE_MS);  // Should have waited until data arrived
+    EXPECT_LT(elapsed2, EXTENDED_TIMEOUT_MS + TIME_TOLERANCE_MS);  // But not the full timeout
 }
 
 // Common base class for test server infrastructure

@@ -341,7 +341,7 @@ int main(int argc, char* argv[]) {
     
     if (chatClient.connect()) {
         // Start the client in a separate thread
-        std::jthread clientThread([&chatClient]() {
+        std::thread clientThread([&chatClient]() {
             chatClient.run();
         });
         
@@ -353,6 +353,11 @@ int main(int argc, char* argv[]) {
         
         // If we reach here, the termination signal has been received
         chatClient.disconnect();
+        
+        // Join the client thread before exiting
+        if (clientThread.joinable()) {
+            clientThread.join();
+        }
     }
     
     return 0;

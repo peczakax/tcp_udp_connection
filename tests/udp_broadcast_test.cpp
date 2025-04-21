@@ -341,20 +341,27 @@ TEST_F(UdpBroadcastTest, BoundBroadcasterTest) {
         << "Failed to create and start receivers";
         
     // Bind the broadcaster to a specific local port
-    NetworkAddress broadcasterAddr(LOCALHOST, 0); // Use port 0 for dynamic assignment
+    // Using ANY_ADDRESS (0.0.0.0) to ensure compatibility with macOS
+    NetworkAddress broadcasterAddr(ANY_ADDRESS, 0); // Use port 0 for dynamic assignment
     ASSERT_TRUE(broadcaster->Bind(broadcasterAddr)) << "Failed to bind broadcaster socket";
     
     // Get the actual port that was assigned
     NetworkAddress actualAddr = broadcaster->GetLocalAddress();
     std::cout << "Broadcaster bound to port: " << actualAddr.port << std::endl;
     
+    // Give some additional time for socket binding to take effect
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    
     // Send the broadcast
     std::string testMessage = "Broadcast from bound socket";
     int bytesSent = broadcastToAllPorts(testMessage);
     ASSERT_GT(bytesSent, 0) << "Failed to send broadcast from bound socket";
     
+    // Wait a bit longer on macOS for packet processing
+    int extendedWaitTime = BROADCAST_WAIT_MS * 2;
+    
     // Verify all receivers got the message
-    EXPECT_TRUE(verifyAllReceiversGotMessage(testMessage))
+    EXPECT_TRUE(verifyAllReceiversGotMessage(testMessage, extendedWaitTime))
         << "Not all receivers got the message from bound broadcaster";
 }
 

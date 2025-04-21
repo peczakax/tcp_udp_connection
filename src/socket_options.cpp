@@ -200,9 +200,9 @@ bool BindToDevice(ISocketBase* socket, const std::string& interfaceName) {
 bool SetPriority(ISocketBase* socket, int priority) {
     if (!socket) return false;
     
-    #ifdef _WIN32
-    // Windows doesn't have SO_PRIORITY
-    return true; // Not supported in Windows
+    #if defined(_WIN32) || defined(__APPLE__)
+    // Windows and macOS don't have SO_PRIORITY
+    return true; // Not supported on Windows or macOS
     #else
     return SocketUtils::SetSocketOption<int>(socket, SOL_SOCKET, SO_PRIORITY, priority);
     #endif
@@ -227,10 +227,10 @@ bool GetRawOption(ISocketBase* socket, int level, int optionName, char* buffer, 
 bool BindToDeviceRaw(ISocketBase* socket, const char* interfaceName, size_t ifNameMaxLen) {
     if (!socket || !interfaceName) return false;
 
-    #ifdef _WIN32
-    // Windows doesn't have SO_BINDTODEVICE
+    #if defined(_WIN32) || defined(__APPLE__)
+    // Windows and macOS don't have SO_BINDTODEVICE
     (void)ifNameMaxLen; // Avoid unused parameter warning
-    return true; // Not directly supported in Windows
+    return true; // Not directly supported on Windows or macOS
     #else
     // If ifNameMaxLen is not provided, use strlen + 1 for null terminator
     size_t len = (ifNameMaxLen == 0) ? (strlen(interfaceName) + 1) : ifNameMaxLen;
@@ -241,13 +241,13 @@ bool BindToDeviceRaw(ISocketBase* socket, const char* interfaceName, size_t ifNa
 bool GetBoundDevice(ISocketBase* socket, char* buffer, size_t& bufferSize) {
     if (!socket || !buffer || bufferSize == 0) return false;
 
-    #ifdef _WIN32
-    // Windows doesn't have SO_BINDTODEVICE
+    #if defined(_WIN32) || defined(__APPLE__)
+    // Windows and macOS don't have SO_BINDTODEVICE
     if (bufferSize > 0) {
         buffer[0] = '\0';  // Return empty string
         bufferSize = 1;
     }
-    return true; // Not directly supported in Windows
+    return true; // Not directly supported on Windows or macOS
     #else
     return GetRawOption(socket, SOL_SOCKET, SO_BINDTODEVICE, buffer, bufferSize);
     #endif

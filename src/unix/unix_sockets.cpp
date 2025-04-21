@@ -15,6 +15,11 @@
 
 #include <chrono>
 
+// Include macOS-specific implementations if on macOS
+#ifdef __APPLE__
+#include "macos_sockets.h"
+#endif
+
 // Helper functions
 namespace {
     // Convert NetworkAddress to sockaddr_in
@@ -52,6 +57,11 @@ namespace {
 namespace UnixSocketHelpers {
 
     bool WaitForDataWithTimeout(int socketFd, int timeoutMs) {
+        #ifdef __APPLE__
+        // On macOS, use the kqueue-based implementation
+        return MacOSSocketHelpers::WaitForDataWithTimeout(socketFd, timeoutMs);
+        #else
+        // Standard Unix implementation for Linux and other Unix platforms
         if (socketFd == -1)
             return false;
             
@@ -69,6 +79,7 @@ namespace UnixSocketHelpers {
 
         // Return true if socket has data available
         return (result > 0 && FD_ISSET(socketFd, &readSet));
+        #endif
     }
 }
 

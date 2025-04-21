@@ -15,6 +15,11 @@
 #include <netinet/in.h>
 #endif
 
+// Define SO_BINDTODEVICE for platforms that don't have it (macOS)
+#if !defined(_WIN32) && !defined(SO_BINDTODEVICE)
+#define SO_BINDTODEVICE 25  // Value doesn't matter for tests as we're mocking
+#endif
+
 using ::testing::_;
 using ::testing::Return;
 using ::testing::SetArgPointee;
@@ -326,17 +331,17 @@ TEST_F(SocketOptionsTest, GetAcceptConn) {
 
 TEST_F(SocketOptionsTest, BindToDevice) {
     std::string interfaceName = "eth0";
-    #ifdef _WIN32
-    // On Windows, this function should just return true without calling SetSocketOption
+    #if defined(_WIN32) || defined(__APPLE__)
+    // On Windows and macOS, this function should just return true without calling SetSocketOption
     EXPECT_CALL(mockSocket, SetSocketOption(_, _, _, _)).Times(0);
     EXPECT_TRUE(SocketOptions::BindToDevice(&mockSocket, interfaceName));
     #else
-    // On Unix, expect a call to SetSocketOption with SO_BINDTODEVICE
+    // On Unix (excluding macOS), expect a call to SetSocketOption with SO_BINDTODEVICE
     socklen_t expectedLen = interfaceName.length() + 1;
     EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_BINDTODEVICE, NotNull(), expectedLen))
         .WillOnce(DoAll(
-            WithArg<2>([&interfaceName](const void* val) {
-                EXPECT_STREQ(static_cast<const char*>(val), interfaceName.c_str());
+            WithArg<2>([interfaceNameCopy = interfaceName](const void* val) {
+                EXPECT_STREQ(static_cast<const char*>(val), interfaceNameCopy.c_str());
             }),
             Return(true)
         ));
@@ -347,12 +352,12 @@ TEST_F(SocketOptionsTest, BindToDevice) {
 }
 
 TEST_F(SocketOptionsTest, SetPriority) {
-    #ifdef _WIN32
-    // On Windows, this function should just return true without calling SetSocketOption
+    #if defined(_WIN32) || defined(__APPLE__)
+    // On Windows and macOS, this function should just return true without calling SetSocketOption
     EXPECT_CALL(mockSocket, SetSocketOption(_, _, _, _)).Times(0);
     EXPECT_TRUE(SocketOptions::SetPriority(&mockSocket, PRIORITY));
     #else
-    // On Unix, expect a call to SetSocketOption with SO_PRIORITY
+    // On Unix (excluding macOS), expect a call to SetSocketOption with SO_PRIORITY
     EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_PRIORITY, NotNull(), sizeof(int)))
         .WillOnce(DoAll(
             WithArg<2>([PRIORITY = PRIORITY](const void* val) {
@@ -436,16 +441,16 @@ TEST_F(SocketOptionsTest, BindToDeviceRaw) {
     const char* interfaceName = "eth0";
     size_t nameLen = strlen(interfaceName) + 1;  // Include null terminator
     
-#ifdef _WIN32
-    // On Windows, this function should just return true without calling SetSocketOption
+#if defined(_WIN32) || defined(__APPLE__)
+    // On Windows and macOS, this function should just return true without calling SetSocketOption
     EXPECT_CALL(mockSocket, SetSocketOption(_, _, _, _)).Times(0);
     EXPECT_TRUE(SocketOptions::BindToDeviceRaw(&mockSocket, interfaceName));
 #else
-    // On Unix, expect a call to SetSocketOption with SO_BINDTODEVICE
+    // On Unix (excluding macOS), expect a call to SetSocketOption with SO_BINDTODEVICE
     EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_BINDTODEVICE, NotNull(), static_cast<socklen_t>(nameLen)))
         .WillOnce(DoAll(
-            WithArg<2>([interfaceName](const void* val) {
-                EXPECT_STREQ(static_cast<const char*>(val), interfaceName);
+            WithArg<2>([interfaceNameCopy = interfaceName](const void* val) {
+                EXPECT_STREQ(static_cast<const char*>(val), interfaceNameCopy);
             }),
             Return(true)
         ));
@@ -455,8 +460,8 @@ TEST_F(SocketOptionsTest, BindToDeviceRaw) {
     size_t explicitSize = 20;  // Larger than actual size
     EXPECT_CALL(mockSocket, SetSocketOption(SOL_SOCKET, SO_BINDTODEVICE, NotNull(), static_cast<socklen_t>(explicitSize)))
         .WillOnce(DoAll(
-            WithArg<2>([interfaceName](const void* val) {
-                EXPECT_STREQ(static_cast<const char*>(val), interfaceName);
+            WithArg<2>([interfaceNameCopy = interfaceName](const void* val) {
+                EXPECT_STREQ(static_cast<const char*>(val), interfaceNameCopy);
             }),
             Return(true)
         ));
@@ -475,8 +480,8 @@ TEST_F(SocketOptionsTest, GetBoundDevice) {
     size_t bufferSize = 16;  // Large enough for the expected data
     char buffer[16] = {0};   // Initialize buffer with zeros
     
-#ifdef _WIN32
-    // On Windows, this function should set empty string and return true
+#if defined(_WIN32) || defined(__APPLE__)
+    // On Windows and macOS, this function should set empty string and return true
     size_t actualSize = bufferSize;
     EXPECT_TRUE(SocketOptions::GetBoundDevice(&mockSocket, buffer, actualSize));
     EXPECT_STREQ(buffer, "");

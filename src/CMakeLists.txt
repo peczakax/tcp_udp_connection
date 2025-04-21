@@ -14,6 +14,12 @@ else()
     list(APPEND SOURCE_FILES
         unix/unix_sockets.cpp
     )
+    # Add macOS-specific sources when on macOS
+    if(APPLE)
+        list(APPEND SOURCE_FILES
+            unix/macos_sockets.cpp
+        )
+    endif()
 endif()
 
 add_library(network STATIC ${SOURCE_FILES})
