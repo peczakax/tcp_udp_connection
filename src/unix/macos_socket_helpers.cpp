@@ -27,19 +27,9 @@ namespace SocketHelpers {
             // Fall back to select-based implementation
             std::cerr << "kqueue creation failed, falling back to select-based implementation" << std::endl;
             
-            // Implement fallback directly instead of calling UnixSocketHelpers to avoid circular dependency
-            fd_set readSet;
-            FD_ZERO(&readSet);
-            FD_SET(socketFd, &readSet);
-
-            struct timespec timeout;
-            auto ms = std::chrono::milliseconds(timeoutMs);
-            timeout.tv_sec = std::chrono::duration_cast<std::chrono::seconds>(ms).count();
-            timeout.tv_nsec = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                ms - std::chrono::duration_cast<std::chrono::seconds>(ms)).count();
-
-            int result = pselect(socketFd + 1, &readSet, NULL, NULL, &timeout, NULL);
-            return (result > 0 && FD_ISSET(socketFd, &readSet));
+            // Call the common implementation from unix_socket_helpers.cpp
+            extern bool UnixSocketHelpers_WaitForDataWithTimeout(int socketFd, int timeoutMs);
+            return UnixSocketHelpers_WaitForDataWithTimeout(socketFd, timeoutMs);
         }
         
         struct kevent event;
@@ -51,19 +41,9 @@ namespace SocketHelpers {
             close(kq);
             std::cerr << "kevent registration failed, falling back to select-based implementation" << std::endl;
             
-            // Implement fallback directly
-            fd_set readSet;
-            FD_ZERO(&readSet);
-            FD_SET(socketFd, &readSet);
-
-            struct timespec timeout;
-            auto ms = std::chrono::milliseconds(timeoutMs);
-            timeout.tv_sec = std::chrono::duration_cast<std::chrono::seconds>(ms).count();
-            timeout.tv_nsec = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                ms - std::chrono::duration_cast<std::chrono::seconds>(ms)).count();
-
-            int result = pselect(socketFd + 1, &readSet, NULL, NULL, &timeout, NULL);
-            return (result > 0 && FD_ISSET(socketFd, &readSet));
+            // Call the common implementation from unix_socket_helpers.cpp
+            extern bool UnixSocketHelpers_WaitForDataWithTimeout(int socketFd, int timeoutMs);
+            return UnixSocketHelpers_WaitForDataWithTimeout(socketFd, timeoutMs);
         }
         
         // Set up the timeout for kevent using std::chrono
