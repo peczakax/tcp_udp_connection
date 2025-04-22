@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+#include "common_socket_helpers.h"
 #include "socket_helpers.h"
 
 namespace SocketHelpers {
@@ -28,8 +29,7 @@ namespace SocketHelpers {
             std::cerr << "kqueue creation failed, falling back to select-based implementation" << std::endl;
             
             // Call the common implementation from unix_socket_helpers.cpp
-            extern bool UnixSocketHelpers_WaitForDataWithTimeout(int socketFd, int timeoutMs);
-            return UnixSocketHelpers_WaitForDataWithTimeout(socketFd, timeoutMs);
+            return SelectWaitForDataWithTimeout(socketFd, timeoutMs);
         }
         
         struct kevent event;
@@ -42,8 +42,7 @@ namespace SocketHelpers {
             std::cerr << "kevent registration failed, falling back to select-based implementation" << std::endl;
             
             // Call the common implementation from unix_socket_helpers.cpp
-            extern bool UnixSocketHelpers_WaitForDataWithTimeout(int socketFd, int timeoutMs);
-            return UnixSocketHelpers_WaitForDataWithTimeout(socketFd, timeoutMs);
+            return SelectWaitForDataWithTimeout(socketFd, timeoutMs);
         }
         
         // Set up the timeout for kevent using std::chrono

@@ -5,10 +5,11 @@ set(UNIX_SOURCES
 # Add macOS-specific sources if on macOS
 if(APPLE)
     list(APPEND UNIX_SOURCES
-        macos_helpers.cpp
+        macos_socket_helpers.cpp
+        common_socket_helpers.cpp
     )
 elseif(UNIX AND NOT APPLE)    
     list(APPEND UNIX_SOURCES
-        unix_helpers.cpp
+        common_socket_helpers.cpp
     )
 endif()

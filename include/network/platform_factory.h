@@ -26,17 +26,12 @@ public:
 
 class NetworkFactorySingleton {
 public:
-    static INetworkSocketFactory & GetInstance() {
-        std::lock_guard<std::mutex> lock(mutex_);
-        if (!instance) {
-            factory = INetworkSocketFactory::CreatePlatformFactory();
-            instance = factory.get();
-        }
-        return *instance;
+    static INetworkSocketFactory& GetInstance() {
+        static std::unique_ptr<INetworkSocketFactory> factory = INetworkSocketFactory::CreatePlatformFactory();
+        return *factory;
     }
 
 private:
-    static std::unique_ptr<INetworkSocketFactory> factory;
     static INetworkSocketFactory* instance;
     static std::mutex mutex_;
 };

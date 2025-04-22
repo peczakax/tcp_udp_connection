@@ -1,6 +1,6 @@
 set(SOURCE_FILES
     platform_factory.cpp
-    socket_options.cpp
+    socket_options.cpp    
 )
 
 # Add platform-specific sources
@@ -17,10 +17,12 @@ else()
     # Add macOS-specific sources when on macOS
     if(APPLE)
         list(APPEND SOURCE_FILES
+            unix/common_socket_helpers.cpp
             unix/macos_socket_helpers.cpp
         )
     elseif(UNIX AND NOT APPLE)
         list(APPEND SOURCE_FILES
+            unix/common_socket_helpers.cpp
             unix/unix_socket_helpers.cpp
         )
     endif()

@@ -29,6 +29,8 @@
 
 // Default port for the chat server
 constexpr int DEFAULT_PORT = 8085;
+constexpr int CLIENT_TIMEOUT_SECONDS = 120;
+constexpr size_t DEFAULT_BUFFER_SIZE = 4096;
 
 // Structure to represent a connected client
 struct UdpClient {
@@ -219,7 +221,7 @@ private:
                 for (const auto& [addr, client] : clients) {
                     // If client has been inactive for more than 2 minutes, remove them
                     // We use a shorter timeout for UDP since it's connectionless
-                    if (difftime(currentTime, client.lastActivity) > 120) {
+                    if (difftime(currentTime, client.lastActivity) > CLIENT_TIMEOUT_SECONDS) {
                         toRemove.push_back(addr);
                     }
                 }
@@ -393,7 +395,7 @@ private:
                 if (socket->WaitForDataWithTimeout(100)) {
                     // Clear the buffer before receiving new data
                     buffer.clear();
-                    buffer.resize(4096);
+                    buffer.resize(DEFAULT_BUFFER_SIZE);
                     
                     // Only try to receive if data is available
                     NetworkAddress clientAddress;

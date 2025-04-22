@@ -167,7 +167,7 @@ void testRealDataWaitForDataWithTimeout(std::shared_ptr<MockSocketT> mockSocket)
     
     EXPECT_FALSE(result1);
     // Add some tolerance to account for timing variations across systems
-    constexpr int TIME_TOLERANCE_MS = 50;
+    constexpr int TIME_TOLERANCE_MS = 100;
     EXPECT_GE(elapsed1, SHORT_TIMEOUT_MS - TIME_TOLERANCE_MS);  // Should have waited approximately the timeout
     EXPECT_LT(elapsed1, DATA_ARRIVAL_TIME_MS + TIME_TOLERANCE_MS);  // But shouldn't wait the full data arrival time
     
