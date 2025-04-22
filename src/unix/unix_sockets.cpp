@@ -1,6 +1,5 @@
 #if defined(__unix__) || defined(__APPLE__) || defined(__linux__)
 
-#include "unix_sockets.h"
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <netinet/in.h>
@@ -12,13 +11,11 @@
 #include <cerrno>
 #include <cstring>
 #include <stdexcept>
-
 #include <chrono>
 
-// Include macOS-specific implementations if on macOS
-#ifdef __APPLE__
-#include "macos_sockets.h"
-#endif
+#include "socket_helpers.h"
+#include "unix_sockets.h"
+
 
 // Helper functions
 namespace {
@@ -50,36 +47,6 @@ namespace {
             return true;
         }
         return false;
-    }
-}
-
-// Implementation of the helper function for WaitForDataWithTimeout
-namespace UnixSocketHelpers {
-
-    bool WaitForDataWithTimeout(int socketFd, int timeoutMs) {
-        #ifdef __APPLE__
-        // On macOS, use the kqueue-based implementation
-        return MacOSSocketHelpers::WaitForDataWithTimeout(socketFd, timeoutMs);
-        #else
-        // Standard Unix implementation for Linux and other Unix platforms
-        if (socketFd == -1)
-            return false;
-            
-        fd_set readSet;
-        FD_ZERO(&readSet);
-        FD_SET(socketFd, &readSet);
-
-        struct timespec timeout;
-        timeout.tv_sec = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::milliseconds(timeoutMs)).count();
-        timeout.tv_nsec = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::milliseconds(timeoutMs) - std::chrono::duration_cast<std::chrono::seconds>(std::chrono::milliseconds(timeoutMs))).count();
-
-        // Use pselect to wait for data with timeout
-        // Pass NULL for sigmask to maintain current signal mask
-        int result = pselect(socketFd + 1, &readSet, NULL, NULL, &timeout, NULL);
-
-        // Return true if socket has data available
-        return (result > 0 && FD_ISSET(socketFd, &readSet));
-        #endif
     }
 }
 
@@ -254,7 +221,7 @@ bool UnixTcpSocket::WaitForDataWithTimeout(int timeoutMs) {
     if (!m_isConnected)
         return false;
         
-    return UnixSocketHelpers::WaitForDataWithTimeout(m_socketFd, timeoutMs);
+    return SocketHelpers::WaitForDataWithTimeout(m_socketFd, timeoutMs);
 }
 
 bool UnixTcpSocket::SetSocketOption(int level, int optionName, const void* optionValue, socklen_t optionLen) {
@@ -336,7 +303,7 @@ std::unique_ptr<IConnectionOrientedSocket> UnixTcpListener::Accept() {
 }
 
 bool UnixTcpListener::WaitForDataWithTimeout(int timeoutMs) {
-    return UnixSocketHelpers::WaitForDataWithTimeout(m_socketFd, timeoutMs);
+    return SocketHelpers::WaitForDataWithTimeout(m_socketFd, timeoutMs);
 }
 
 bool UnixTcpListener::SetSocketOption(int level, int optionName, const void* optionValue, socklen_t optionLen) {
@@ -460,7 +427,7 @@ bool UnixUdpSocket::LeaveMulticastGroup(const NetworkAddress& groupAddress) {
 }
 
 bool UnixUdpSocket::WaitForDataWithTimeout(int timeoutMs) {
-    return UnixSocketHelpers::WaitForDataWithTimeout(m_socketFd, timeoutMs);
+    return  SocketHelpers::WaitForDataWithTimeout(m_socketFd, timeoutMs);
 }
 
 bool UnixUdpSocket::SetSocketOption(int level, int optionName, const void* optionValue, socklen_t optionLen) {

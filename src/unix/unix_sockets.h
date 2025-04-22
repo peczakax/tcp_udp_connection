@@ -14,17 +14,12 @@
 #include "network/tcp_socket.h"
 #include "network/udp_socket.h"
 #include "network/platform_factory.h"
+#include "socket_helpers.h"
 
 // Forward declarations
 class UnixTcpSocket;
 class UnixTcpListener;
 class UnixUdpSocket;
-
-// Helper functions namespace
-namespace UnixSocketHelpers {
-    // Common helper function for WaitForDataWithTimeout implementation
-    bool WaitForDataWithTimeout(int socketFd, int timeoutMs);
-}
 
 // Unix implementation of TCP socket
 class UnixTcpSocket final : public ITcpSocket {

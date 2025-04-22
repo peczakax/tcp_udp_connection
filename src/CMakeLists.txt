@@ -17,7 +17,11 @@ else()
     # Add macOS-specific sources when on macOS
     if(APPLE)
         list(APPEND SOURCE_FILES
-            unix/macos_sockets.cpp
+            unix/macos_socket_helpers.cpp
+        )
+    elseif(UNIX AND NOT APPLE)
+        list(APPEND SOURCE_FILES
+            unix/unix_socket_helpers.cpp
         )
     endif()
 endif()

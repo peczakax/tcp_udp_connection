@@ -1,12 +1,22 @@
-#include "macos_sockets.h"
-#include <sys/event.h>
-#include <sys/time.h>
 #include <chrono>
+#include <cstddef>
 #include <iostream>
 
-// Implementation will only be used on macOS due to the CMake configuration
-namespace MacOSSocketHelpers {
+#include <sys/event.h> // For kqueue
+#include <sys/time.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <fcntl.h>
 
+#include "socket_helpers.h"
+
+namespace SocketHelpers {
+
+    // Implementation will only be used on macOS due to the CMake configuration
     bool WaitForDataWithTimeout(int socketFd, int timeoutMs) {
         if (socketFd == -1)
             return false;
@@ -74,4 +84,4 @@ namespace MacOSSocketHelpers {
         // Return whether data is available
         return (result > 0);
     }
-}
+} // namespace SocketHelpers
