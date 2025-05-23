@@ -13,8 +13,3 @@ std::unique_ptr<INetworkSocketFactory> INetworkSocketFactory::CreatePlatformFact
     return std::make_unique<UnixNetworkSocketFactory>();
 #endif
 }
-
-// Define static members for NetworkFactorySingleton
-std::unique_ptr<INetworkSocketFactory> NetworkFactorySingleton::factory = nullptr;
-INetworkSocketFactory* NetworkFactorySingleton::instance = nullptr;
-std::mutex NetworkFactorySingleton::mutex_;

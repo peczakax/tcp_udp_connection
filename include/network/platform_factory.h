@@ -22,18 +22,12 @@ public:
 };
 
 // Factory singleton for creating network sockets
-#include <mutex>
-
 class NetworkFactorySingleton {
 public:
     static INetworkSocketFactory& GetInstance() {
         static std::unique_ptr<INetworkSocketFactory> factory = INetworkSocketFactory::CreatePlatformFactory();
         return *factory;
     }
-
-private:
-    static INetworkSocketFactory* instance;
-    static std::mutex mutex_;
 };
 
 #endif // PLATFORM_FACTORY_H
